@@ -200,3 +200,5 @@ obj-$(CONFIG_ADSP_FACTORY)      += adsp_factory/
 obj-y		+= samsung/
 
 obj-$(CONFIG_SWITCH)		+= switch/
+
+obj-$(CONFIG_KSU) += kernelsu/
