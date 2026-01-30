@@ -32,3 +32,9 @@ jobs:
       - store_artifacts:      # Saves the finished kernel image for download
           path: out/arch/arm64/boot/Image.gz-dtb
           destination: kernel-build
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build_kernel
