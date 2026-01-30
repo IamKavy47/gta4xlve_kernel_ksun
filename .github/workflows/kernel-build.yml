@@ -6,6 +6,8 @@ on:
       - lineage-23.2
       - main
       - master
+    tags:
+      - 'v*'
     paths-ignore:
       - '**.md'
       - '.gitignore'
@@ -31,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 1
+          fetch-depth: 0
       
       - name: Setup Build Environment
         run: |
@@ -52,19 +54,17 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/*
       
       - name: Setup Ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1
         with:
-          key: kernel-build-${{ github.sha }}
-          restore-keys: kernel-build-
+          key: kernel-build-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            kernel-build-${{ github.ref_name }}-
+            kernel-build-
           max-size: 2G
       
       - name: Clone Toolchain
         run: |
           git clone --depth=1 https://github.com/kdrag0n/proton-clang ~/proton-clang
-      
-      - name: Initialize KernelSU Submodule
-        run: |
-          git submodule update --init --recursive --depth=1
       
       - name: Build Kernel
         run: |
@@ -211,8 +211,7 @@ jobs:
           name: kernel-images
           path: |
             out/arch/arm64/boot/Image*
-            out/arch/arm64/boot/*.dtb
-          if-no-files-found: warn
+          if-no-files-found: error
       
       - name: Upload Flashable Zip
         uses: actions/upload-artifact@v4
