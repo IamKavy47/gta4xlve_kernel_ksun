@@ -1,42 +1,51 @@
 version: 2.1
+
 jobs:
   compile:
     docker:
       - image: ubuntu:20.04
     resource_class: large
     steps:
-      - checkout
+      # 1. Shallow clone the repo to prevent 42+ minute 'Checkout code' timeouts
+      - run:
+          name: Optimized Shallow Checkout
+          command: |
+            git clone --depth=1 --branch=lineage-23.2 https://github.com/IamKavy47/gta4xlve_kernel_ksun.git .
+            # Initialize submodules shallowly (essential for KernelSU-Next files)
+            git submodule update --init --recursive --depth=1
+
       - run:
           name: Setup Environment and Build
           command: |
-            # 1. Install necessary build tools 
+            # 2. Install build dependencies non-interactively
             export DEBIAN_FRONTEND=noninteractive
             apt-get -y update && apt-get -y upgrade
-            apt-get -y install bc build-essential zip curl libstdc++6 git wget gcc clang libssl-dev rsync flex bison cpio libncurses5 python3 python-is-python3 kmod gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+            apt-get -y install bc bison build-essential cpio curl flex git kmod libncurses5 libssl-dev python3 python-is-python3 rsync zip clang lld llvm gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
 
-            # 2. Sync submodules (Ensures KernelSU-Next code is present)
-            git submodule update --init --recursive
-
-            # 3. Build setup
+            # 3. Environment Setup
             export ARCH=arm64
+            export SUBARCH=arm64
             export CROSS_COMPILE=aarch64-linux-gnu-
             mkdir -p out
 
-            # 4. Merge the configs for Snapdragon 720G + Tab S6 Lite
+            # 4. Merge configuration fragments for Snapdragon 720G (atoll)
+            # This combines the base atoll-perf with your gta4xlve overrides
             make O=out vendor/atoll-perf_defconfig vendor/gta4xlve.config
 
-            # 5. Handle interactive prompts (The fix for your previous error)
+            # 5. Automatically accept new config defaults (prevents interactive hangs)
             yes "" | make O=out oldconfig
 
-            # 6. Final Compilation
+            # 6. Final Compilation using all CPU cores
             make O=out -j$(nproc --all) \
                 CC=clang \
                 CLANG_TRIPLE=aarch64-linux-gnu- \
                 CROSS_COMPILE=aarch64-linux-gnu-
 
+      # 7. Store the finished kernel Image and DTB as artifacts
       - store_artifacts:
           path: out/arch/arm64/boot/
           destination: kernel-output
+
 workflows:
   version: 2.1
   cooking:
