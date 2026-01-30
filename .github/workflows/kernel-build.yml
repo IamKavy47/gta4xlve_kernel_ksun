@@ -27,6 +27,9 @@ jobs:
   build:
     name: Build GTA4XLVE Kernel
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # Required for creating releases
+      actions: read    # Required for workflow access
     
     steps:
       - name: Checkout Repository
