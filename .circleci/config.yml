@@ -21,18 +21,55 @@ jobs:
             export SUBARCH=arm64
             export CROSS_COMPILE=aarch64-linux-gnu-
             mkdir -p out
+            mkdir -p build-logs
 
-            make O=out vendor/atoll-perf_defconfig vendor/gta4xlve.config
-            yes "" | make O=out oldconfig
+            # Configure kernel with output capture
+            make O=out vendor/atoll-perf_defconfig vendor/gta4xlve.config 2>&1 | tee build-logs/config.log
+            yes "" | make O=out oldconfig 2>&1 | tee -a build-logs/config.log
 
+            # Build kernel with maximum parallelism and capture all output
+            echo "Starting kernel build with $(nproc --all) parallel jobs..."
+            
+            set +e
             make O=out -j$(nproc --all) \
                 CC=clang \
                 CLANG_TRIPLE=aarch64-linux-gnu- \
-                CROSS_COMPILE=aarch64-linux-gnu-
+                CROSS_COMPILE=aarch64-linux-gnu- \
+                2>&1 | tee build-logs/build-full.log
+            BUILD_STATUS=${PIPESTATUS[0]}
+            set -e
+            
+            # Extract errors and warnings
+            grep -i "error:" build-logs/build-full.log > build-logs/errors.log || echo "No errors found" > build-logs/errors.log
+            grep -i "warning:" build-logs/build-full.log > build-logs/warnings.log || echo "No warnings found" > build-logs/warnings.log
+            
+            # Count errors and warnings
+            ERROR_COUNT=$(grep -c "error:" build-logs/build-full.log || echo 0)
+            WARNING_COUNT=$(grep -c "warning:" build-logs/build-full.log || echo 0)
+            
+            echo "Build completed with status: $BUILD_STATUS"
+            echo "Total errors: $ERROR_COUNT"
+            echo "Total warnings: $WARNING_COUNT"
+            
+            # Create summary
+            cat > build-logs/summary.txt << SUMMARY
+            Build Summary
+            =============
+            Build Exit Code: $BUILD_STATUS
+            Total Errors: $ERROR_COUNT
+            Total Warnings: $WARNING_COUNT
+            Parallel Jobs: $(nproc --all)
+            SUMMARY
+            
+            exit $BUILD_STATUS
 
       - store_artifacts:
           path: out/arch/arm64/boot/
           destination: kernel-output
+
+      - store_artifacts:
+          path: build-logs/
+          destination: build-logs
 
 workflows:
   version: 2.1
