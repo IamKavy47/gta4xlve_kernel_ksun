@@ -19,6 +19,24 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Setup KernelSU-Next
+        run: |
+          # Verify KernelSU-Next submodule is initialized
+          if [ ! -d "KernelSU-Next/kernel" ]; then
+            echo "KernelSU-Next submodule not properly initialized"
+            git submodule update --init --recursive
+          fi
+
+          # Create symlink for KernelSU-Next integration
+          if [ -d "KernelSU-Next/kernel" ]; then
+            ln -sf ../KernelSU-Next/kernel drivers/kernelsu
+            echo "✓ KernelSU-Next linked to drivers/kernelsu"
+            ls -la drivers/kernelsu
+          else
+            echo "✗ KernelSU-Next kernel directory not found"
+            exit 1
+          fi
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
@@ -46,7 +64,8 @@ jobs:
           cd AnyKernel3
           # Configure for Galaxy Tab S6 Lite (gta4xlve)
           rm -f .git/config
-          echo "# AnyKernel3 Ramdisk Mod Script
+          cat > anykernel.sh << 'EOF'
+          # AnyKernel3 Ramdisk Mod Script
           # osm0sis @ xda-developers
 
           ## AnyKernel setup
@@ -67,7 +86,8 @@ jobs:
           boot_img_hdr_ver=2
           split_boot;
           flash_boot;
-          " > anykernel.sh
+          EOF
+          chmod +x anykernel.sh
 
       - name: Fix qcacld-3.0 Werror
         run: |
