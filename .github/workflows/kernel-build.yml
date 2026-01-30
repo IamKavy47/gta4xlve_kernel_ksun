@@ -54,7 +54,7 @@ jobs:
           mkdir -p ~/toolchains
           cd ~/toolchains
           # Using Proton Clang - optimized for kernel builds, faster than AOSP
-          wget -q https://github.com/kdrag0n/proton-clang/archive/refs/heads/master.tar.gz -O proton-clang.tar.gz
+          wget -q -r -l1 https://github.com/kdrag0n/proton-clang/archive/refs/heads/master.tar.gz -O proton-clang.tar.gz
           tar -xzf proton-clang.tar.gz
           mv proton-clang-master clang
           rm proton-clang.tar.gz
@@ -125,7 +125,7 @@ jobs:
           make O=out ARCH=arm64 olddefconfig
 
           # Build kernel Image.gz-dtb and dtbo
-          make O=out ARCH=arm64 -j$(nproc --all)
+          make O=out ARCH=arm64 -j1
 
       - name: Check Build Output
         run: |
