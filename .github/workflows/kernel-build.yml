@@ -1,23 +1,43 @@
-name: Kernel Build (AOSP Clang)
+name: Kernel Build with KernelSU
 
 on:
   workflow_dispatch:
   push:
-    branches: [ lineage-23.2 ]
+    # Triggers on push to any branch
+  pull_request:
+    # Also triggers on pull requests
 
 jobs:
   build:
-    name: Build GTA4XLVE Kernel
+    name: Build GTA4XLVE Kernel with KSU
     runs-on: ubuntu-22.04
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 1 # Shallow clone for speed
+          fetch-depth: 0
+
+      - name: Setup KernelSU-Next
+        run: |
+          # Verify KernelSU-Next submodule is initialized
+          if [ ! -d "KernelSU-Next/kernel" ]; then
+            echo "KernelSU-Next submodule not properly initialized"
+            git submodule update --init --recursive
+          fi
+
+          # Create symlink for KernelSU-Next integration
+          if [ -d "KernelSU-Next/kernel" ]; then
+            ln -sf ../KernelSU-Next/kernel drivers/kernelsu
+            echo "✓ KernelSU-Next linked to drivers/kernelsu"
+            ls -la drivers/kernelsu
+          else
+            echo "✗ KernelSU-Next kernel directory not found"
+            exit 1
+          fi
 
       - name: Setup Build Environment
         run: |
@@ -25,46 +45,150 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             bc bison build-essential ccache cpio flex git kmod \
             libncurses5-dev libssl-dev python3 python-is-python3 \
-            rsync zip unzip gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+            rsync zip unzip wget curl ca-certificates \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            device-tree-compiler
 
-      - name: Clone AOSP Clang
+      - name: Setup Proton Clang
         run: |
-          # Cloning official AOSP Clang (r383902b is common for 4.14/4.19 kernels)
-          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 ~/aosp-clang
-          # Move to a specific stable version used in AOSP
-          cd ~/aosp-clang && git checkout 6760f385c72199b66236b2f4f30c90c749988775 # clang-r383902b
+          mkdir -p ~/toolchains
+          cd ~/toolchains
+          # Using Proton Clang - optimized for kernel builds, faster than AOSP
+          wget -q https://github.com/kdrag0n/proton-clang/archive/refs/heads/master.tar.gz -O proton-clang.tar.gz
+          tar -xzf proton-clang.tar.gz
+          mv proton-clang-master clang
+          rm proton-clang.tar.gz
+
+      - name: Setup AnyKernel3
+        run: |
+          cd ~
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
+          cd AnyKernel3
+          # Configure for Galaxy Tab S6 Lite (gta4xlve)
+          # Create AnyKernel3 configuration script
+          cat > anykernel.sh << 'EOF'
+          # AnyKernel3 Ramdisk Mod Script
+          # osm0sis @ xda-developers
+
+          ## AnyKernel setup
+          properties() {
+          kernel.string=GTA4XLVE KernelSU Kernel
+          do.devicecheck=1
+          do.modules=0
+          do.systemless=1
+          do.cleanup=1
+          do.cleanuponabort=0
+          device.name1=gta4xlve
+          device.name2=gta4xl
+          device.name3=SM-P613
+          device.name4=SM-P610
+          }
+
+          ## AnyKernel install
+          boot_img_hdr_ver=2
+          split_boot;
+          flash_boot;
+          EOF
+          chmod +x anykernel.sh
 
       - name: Fix qcacld-3.0 Werror
         run: |
-          # Recursively remove -Werror from the Wi-Fi driver to prevent Error 2
-          find drivers/staging/qcacld-3.0 -name "Kbuild" -exec sed -i 's/-Werror//g' {} +
-          find drivers/staging/qcacld-3.0 -name "Makefile" -exec sed -i 's/-Werror//g' {} +
+          # Remove -Werror from Wi-Fi driver to prevent build errors
+          find drivers/staging/qcacld-3.0 -name "Kbuild" -exec sed -i 's/-Werror//g' {} + 2>/dev/null || true
+          find drivers/staging/qcacld-3.0 -name "Makefile" -exec sed -i 's/-Werror//g' {} + 2>/dev/null || true
 
       - name: Build Kernel
         run: |
           export ARCH=arm64
           export SUBARCH=arm64
-          # Add AOSP Clang to PATH
-          export PATH=~/aosp-clang/clang-r383902b/bin:$PATH
+          export PATH=~/toolchains/clang/bin:$PATH
           export CROSS_COMPILE=aarch64-linux-gnu-
-          
-          mkdir -p out
-          
-          # Merge configs
-          make O=out ARCH=arm64 vendor/atoll-perf_defconfig vendor/gta4xlve.config
-          
-          # Use 'olddefconfig' to non-interactively accept new KSU options
-          make O=out ARCH=arm64 olddefconfig
-          
-          # Final build command passing CC and CLANG_TRIPLE
-          make O=out ARCH=arm64 \
-            CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            -j$(nproc --all)
+          export CC=clang
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export KBUILD_BUILD_USER=GitHub-Actions
+          export KBUILD_BUILD_HOST=GitHub
 
-      - name: Upload Flashable Zip
+          mkdir -p out
+
+          # Generate base config
+          make O=out ARCH=arm64 vendor/atoll-perf_defconfig
+
+          # Merge device-specific config with KSU enabled using proper method
+          if [ -f scripts/kconfig/merge_config.sh ]; then
+            scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/vendor/gta4xlve.config
+          else
+            # Fallback to cat if merge script doesn't exist
+            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
+          fi
+
+          # Non-interactively resolve config
+          make O=out ARCH=arm64 olddefconfig
+
+          # Build kernel Image.gz-dtb and dtbo
+          make O=out ARCH=arm64 -j$(nproc --all)
+
+      - name: Check Build Output
+        run: |
+          ls -lh out/arch/arm64/boot/
+          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
+            echo "✓ Kernel Image.gz-dtb built successfully"
+            ls -lh out/arch/arm64/boot/Image.gz-dtb
+          elif [ -f out/arch/arm64/boot/Image.gz ]; then
+            echo "✓ Kernel Image.gz built successfully"
+            ls -lh out/arch/arm64/boot/Image.gz
+          else
+            echo "✗ Kernel build failed - no Image found"
+            exit 1
+          fi
+
+      - name: Create AnyKernel3 Flashable ZIP
+        run: |
+          cd ~/AnyKernel3
+
+          # Clean unnecessary files from AnyKernel3
+          rm -rf .git* README.md ramdisk modules patch
+
+          # Copy kernel image
+          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
+            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb Image.gz-dtb
+            echo "Using Image.gz-dtb"
+          elif [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
+            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz Image.gz
+            echo "Using Image.gz"
+          fi
+
+          # Copy dtbo if exists
+          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img ]; then
+            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img dtbo.img
+            echo "DTBO image copied"
+          fi
+
+          # Create flashable ZIP with fixed name
+          ZIPNAME="gta4xlve-kernelsu-kernel-$(date +%Y%m%d-%H%M).zip"
+          zip -r9 ../$ZIPNAME * -x .git README.md .gitignore
+
+          # Move to workspace
+          mv ../$ZIPNAME $GITHUB_WORKSPACE/
+
+      - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-zip
-          path: out/*.zip
+          name: kernel-image
+          path: |
+            out/arch/arm64/boot/Image.gz-dtb
+            out/arch/arm64/boot/Image.gz
+            out/arch/arm64/boot/dtbo.img
+          if-no-files-found: ignore
+
+      - name: Upload Flashable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernelsu-flashable-zip
+          path: gta4xlve-kernelsu-kernel-*.zip
+
+      - name: Upload boot.img (if exists)
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-image
+          path: out/arch/arm64/boot/boot.img
+          if-no-files-found: ignore
