@@ -1,242 +1,70 @@
-name: Kernel Build
+name: Kernel Build (AOSP Clang)
 
 on:
-  push:
-    branches:
-      - lineage-23.2
-      - main
-      - master
-    tags:
-      - 'v*'
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
-  pull_request:
-    branches:
-      - lineage-23.2
-      - main
-      - master
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
   workflow_dispatch:
+  push:
+    branches: [ lineage-23.2 ]
 
 jobs:
   build:
     name: Build GTA4XLVE Kernel
     runs-on: ubuntu-22.04
     permissions:
-      contents: write  # Required for creating releases
-      actions: read    # Required for workflow access
+      contents: write
     
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
-      
+          fetch-depth: 1 # Shallow clone for speed
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            git git-lfs curl wget ca-certificates \
-            bc bison build-essential ccache cpio \
-            flex kmod libncurses5 libncurses5-dev \
-            libssl-dev python3 python3-pip python-is-python3 \
-            rsync zip unzip xz-utils \
-            clang lld llvm \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
-            file
-          
-          # Clean up to save space
-          sudo apt-get clean
-          sudo rm -rf /var/lib/apt/lists/*
-      
-      - name: Setup Ccache
-        uses: hendrikmuhs/ccache-action@v1
-        with:
-          key: kernel-build-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            kernel-build-${{ github.ref_name }}-
-            kernel-build-
-          max-size: 2G
-      
-      - name: Clone Toolchain
+            bc bison build-essential ccache cpio flex git kmod \
+            libncurses5-dev libssl-dev python3 python-is-python3 \
+            rsync zip unzip gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+
+      - name: Clone AOSP Clang
         run: |
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang ~/proton-clang
-      
+          # Cloning official AOSP Clang (r383902b is common for 4.14/4.19 kernels)
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 ~/aosp-clang
+          # Move to a specific stable version used in AOSP
+          cd ~/aosp-clang && git checkout 6760f385c72199b66236b2f4f30c90c749988775 # clang-r383902b
+
+      - name: Fix qcacld-3.0 Werror
+        run: |
+          # Recursively remove -Werror from the Wi-Fi driver to prevent Error 2
+          find drivers/staging/qcacld-3.0 -name "Kbuild" -exec sed -i 's/-Werror//g' {} +
+          find drivers/staging/qcacld-3.0 -name "Makefile" -exec sed -i 's/-Werror//g' {} +
+
       - name: Build Kernel
         run: |
-          set -e
-          
-          # Export build variables
           export ARCH=arm64
           export SUBARCH=arm64
-          export PATH=~/proton-clang/bin:$PATH
+          # Add AOSP Clang to PATH
+          export PATH=~/aosp-clang/clang-r383902b/bin:$PATH
           export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          export CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
-          export CC="ccache clang"
-          export CLANG_TRIPLE=aarch64-linux-gnu-
-          export LLVM=1
-          export LLVM_IAS=1
           
-          # Create output directory
           mkdir -p out
           
-          # Build kernel configuration
-          echo "Building kernel configuration..."
+          # Merge configs
           make O=out ARCH=arm64 vendor/atoll-perf_defconfig vendor/gta4xlve.config
           
-          # Update config for any new options
+          # Use 'olddefconfig' to non-interactively accept new KSU options
           make O=out ARCH=arm64 olddefconfig
           
-          # Build kernel
-          echo "Building kernel image..."
+          # Final build command passing CC and CLANG_TRIPLE
           make O=out ARCH=arm64 \
-            CC="ccache clang" \
+            CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-gnu- \
-            LLVM=1 \
-            LLVM_IAS=1 \
             -j$(nproc --all)
-          
-          echo "Kernel build completed!"
-          ls -lh out/arch/arm64/boot/
-      
-      - name: Prepare AnyKernel3 Package
-        run: |
-          set -e
-          
-          # Set working directory variable
-          WORK_DIR=$(pwd)
-          
-          # Clone AnyKernel3
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 ~/AnyKernel3
-          cd ~/AnyKernel3
-          
-          # Clean up
-          rm -rf .git README.md modules patch ramdisk .github
-          
-          # Copy kernel image
-          if [ -f "${WORK_DIR}/out/arch/arm64/boot/Image.gz-dtb" ]; then
-            echo "Copying Image.gz-dtb..."
-            cp "${WORK_DIR}/out/arch/arm64/boot/Image.gz-dtb" ~/AnyKernel3/
-          elif [ -f "${WORK_DIR}/out/arch/arm64/boot/Image.gz" ]; then
-            echo "Copying Image.gz..."
-            cp "${WORK_DIR}/out/arch/arm64/boot/Image.gz" ~/AnyKernel3/
-          elif [ -f "${WORK_DIR}/out/arch/arm64/boot/Image" ]; then
-            echo "Copying Image..."
-            cp "${WORK_DIR}/out/arch/arm64/boot/Image" ~/AnyKernel3/
-          else
-            echo "Error: No kernel image found!"
-            exit 1
-          fi
-          
-          # Copy dtb if separate
-          if [ -f "${WORK_DIR}/out/arch/arm64/boot/dtb.img" ]; then
-            echo "Copying dtb.img..."
-            cp "${WORK_DIR}/out/arch/arm64/boot/dtb.img" ~/AnyKernel3/
-          fi
-          
-          # Copy kernel modules
-          mkdir -p ~/AnyKernel3/modules/vendor/lib/modules
-          MODULE_COUNT=$(find "${WORK_DIR}/out" -name "*.ko" 2>/dev/null | wc -l)
-          if [ "$MODULE_COUNT" -gt 0 ]; then
-            echo "Copying ${MODULE_COUNT} kernel modules..."
-            find "${WORK_DIR}/out" -name "*.ko" -exec cp {} ~/AnyKernel3/modules/vendor/lib/modules/ \;
-          else
-            echo "No kernel modules found to copy"
-          fi
-          
-          # Update AnyKernel3 properties
-          cat > ~/AnyKernel3/anykernel.sh << 'AKEOF'
-          # AnyKernel3 Ramdisk Mod Script
-          # osm0sis @ xda-developers
-          
-          ## AnyKernel setup
-          # begin properties
-          properties() { 
-          kernel.string=GTA4XLVE Kernel with KernelSU-Next
-          do.devicecheck=1
-          do.modules=1
-          do.systemless=1
-          do.cleanup=1
-          do.cleanuponabort=0
-          device.name1=gta4xlve
-          device.name2=gta4xlvewifi
-          device.name3=SM-P610
-          supported.versions=12-13
-          supported.patchlevels=
-          }
-          
-          # shell variables
-          block=/dev/block/bootdevice/by-name/boot;
-          is_slot_device=0;
-          ramdisk_compression=auto;
-          patch_vbmeta_flag=auto;
-          
-          ## AnyKernel methods (DO NOT CHANGE)
-          # import patching functions/variables - see for reference
-          . tools/ak3-core.sh;
-          
-          ## AnyKernel install
-          dump_boot;
-          
-          # begin ramdisk changes
-          
-          # end ramdisk changes
-          
-          write_boot;
-          ## end install
-          AKEOF
-          
-          # Create flashable zip
-          cd ~/AnyKernel3
-          KERNEL_VERSION=$(cd "${WORK_DIR}" && make kernelversion 2>/dev/null || echo "4.14.356")
-          BUILD_DATE=$(date +%Y%m%d-%H%M)
-          ZIP_NAME="GTA4XLVE-KernelSU-${KERNEL_VERSION}-${BUILD_DATE}.zip"
-          zip -r9 "${WORK_DIR}/out/${ZIP_NAME}" * -x .git README.md *placeholder
-          
-          echo "Flashable zip created: ${ZIP_NAME}"
-          ls -lh "${WORK_DIR}/out/${ZIP_NAME}"
-          
-          # Save zip name for upload
-          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_ENV
-      
-      - name: Upload Kernel Image
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-images
-          path: |
-            out/arch/arm64/boot/Image*
-          if-no-files-found: error
-      
+
       - name: Upload Flashable Zip
         uses: actions/upload-artifact@v4
         with:
-          name: flashable-zip
+          name: kernel-zip
           path: out/*.zip
-          if-no-files-found: error
-      
-      - name: Upload Build Config
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-config
-          path: out/.config
-          if-no-files-found: warn
-      
-      - name: Create Release (on tag push)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: out/*.zip
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
