@@ -23,6 +23,9 @@ jobs:
             mkdir -p out
             mkdir -p build-logs
 
+            # Capture build start time
+            BUILD_START_TIME=$(date)
+
             # Configure kernel with output capture
             make O=out vendor/atoll-perf_defconfig vendor/gta4xlve.config 2>&1 | tee build-logs/config.log
             yes "" | make O=out oldconfig 2>&1 | tee -a build-logs/config.log
@@ -30,22 +33,20 @@ jobs:
             # Build kernel with maximum parallelism and capture all output
             echo "Starting kernel build with $(nproc --all) parallel jobs..."
             
-            set +e
             make O=out -j$(nproc --all) \
                 CC=clang \
                 CLANG_TRIPLE=aarch64-linux-gnu- \
                 CROSS_COMPILE=aarch64-linux-gnu- \
                 2>&1 | tee build-logs/build-full.log
-            BUILD_STATUS=${PIPESTATUS[0]}
-            set -e
+            BUILD_STATUS=$?
             
             # Extract errors and warnings
-            grep -i "error:" build-logs/build-full.log > build-logs/errors.log || echo "No errors found" > build-logs/errors.log
-            grep -i "warning:" build-logs/build-full.log > build-logs/warnings.log || echo "No warnings found" > build-logs/warnings.log
+            grep -i "error:" build-logs/build-full.log > build-logs/errors.log 2>/dev/null || echo "# No errors found" > build-logs/errors.log
+            grep -i "warning:" build-logs/build-full.log > build-logs/warnings.log 2>/dev/null || echo "# No warnings found" > build-logs/warnings.log
             
             # Count errors and warnings
-            ERROR_COUNT=$(grep -c "error:" build-logs/build-full.log || echo 0)
-            WARNING_COUNT=$(grep -c "warning:" build-logs/build-full.log || echo 0)
+            ERROR_COUNT=$(grep -c "error:" build-logs/build-full.log 2>/dev/null || echo 0)
+            WARNING_COUNT=$(grep -c "warning:" build-logs/build-full.log 2>/dev/null || echo 0)
             
             echo "Build completed with status: $BUILD_STATUS"
             echo "Total errors: $ERROR_COUNT"
@@ -59,6 +60,9 @@ jobs:
             Total Errors: $ERROR_COUNT
             Total Warnings: $WARNING_COUNT
             Parallel Jobs: $(nproc --all)
+            
+            Build started: $BUILD_START_TIME
+            Build finished: $(date)
             SUMMARY
             
             exit $BUILD_STATUS

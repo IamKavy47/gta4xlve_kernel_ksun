@@ -111,6 +111,9 @@ jobs:
           mkdir -p out
           mkdir -p build-logs
 
+          # Capture build start time
+          BUILD_START_TIME=$(date)
+
           # Generate base config
           make O=out ARCH=arm64 vendor/atoll-perf_defconfig 2>&1 | tee build-logs/config.log
 
@@ -119,7 +122,7 @@ jobs:
             scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/vendor/gta4xlve.config 2>&1 | tee -a build-logs/config.log
           else
             # Fallback to cat if merge script doesn't exist
-            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
+            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config 2>&1 | tee -a build-logs/config.log
           fi
 
           # Non-interactively resolve config
@@ -130,18 +133,16 @@ jobs:
           echo "Starting kernel build with $(nproc) parallel jobs..."
           
           # Build and capture all output, continue even if there are errors to capture them
-          set +e
           make O=out ARCH=arm64 -j$(nproc) 2>&1 | tee build-logs/build-full.log
-          BUILD_STATUS=${PIPESTATUS[0]}
-          set -e
+          BUILD_STATUS=$?
           
           # Extract errors and warnings from build log
-          grep -i "error:" build-logs/build-full.log > build-logs/errors.log || echo "No errors found (grep returned non-zero)" > build-logs/errors.log
-          grep -i "warning:" build-logs/build-full.log > build-logs/warnings.log || echo "No warnings found (grep returned non-zero)" > build-logs/warnings.log
+          grep -i "error:" build-logs/build-full.log > build-logs/errors.log 2>/dev/null || echo "# No errors found" > build-logs/errors.log
+          grep -i "warning:" build-logs/build-full.log > build-logs/warnings.log 2>/dev/null || echo "# No warnings found" > build-logs/warnings.log
           
           # Count errors and warnings
-          ERROR_COUNT=$(grep -c "error:" build-logs/build-full.log || echo 0)
-          WARNING_COUNT=$(grep -c "warning:" build-logs/build-full.log || echo 0)
+          ERROR_COUNT=$(grep -c "error:" build-logs/build-full.log 2>/dev/null || echo 0)
+          WARNING_COUNT=$(grep -c "warning:" build-logs/build-full.log 2>/dev/null || echo 0)
           
           echo "Build completed with status: $BUILD_STATUS"
           echo "Total errors: $ERROR_COUNT"
@@ -156,7 +157,8 @@ jobs:
           Total Warnings: $WARNING_COUNT
           Parallel Jobs: $(nproc)
           
-          Build started at: $(date)
+          Build started: $BUILD_START_TIME
+          Build finished: $(date)
           SUMMARY
           
           # Exit with the original build status
