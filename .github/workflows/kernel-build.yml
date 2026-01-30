@@ -124,8 +124,10 @@ jobs:
           # Non-interactively resolve config
           make O=out ARCH=arm64 olddefconfig
 
-          # Build kernel Image.gz-dtb and dtbo
-          make O=out ARCH=arm64 -j1
+          # Build kernel Image.gz-dtb and dtbo using all available cores
+          # Capture all warnings and errors to build.log
+          echo "Building with $(nproc) parallel jobs..."
+          make O=out ARCH=arm64 -j$(nproc) 2>&1 | tee build.log
 
       - name: Check Build Output
         run: |
@@ -185,6 +187,13 @@ jobs:
         with:
           name: kernelsu-flashable-zip
           path: gta4xlve-kernelsu-kernel-*.zip
+
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: build.log
 
       - name: Upload boot.img (if exists)
         uses: actions/upload-artifact@v4
