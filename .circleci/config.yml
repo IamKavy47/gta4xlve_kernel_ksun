@@ -92,6 +92,9 @@ jobs:
           command: |
             set -e
             
+            # Set working directory variable
+            WORK_DIR=$(pwd)
+            
             # Clone AnyKernel3
             git clone --depth=1 https://github.com/osm0sis/AnyKernel3 ~/AnyKernel3
             cd ~/AnyKernel3
@@ -100,20 +103,35 @@ jobs:
             rm -rf .git README.md modules patch ramdisk .github
             
             # Copy kernel image
-            if [ -f /home/circleci/project/out/arch/arm64/boot/Image.gz-dtb ]; then
-              cp /home/circleci/project/out/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3/
-            elif [ -f /home/circleci/project/out/arch/arm64/boot/Image.gz ]; then
-              cp /home/circleci/project/out/arch/arm64/boot/Image.gz ~/AnyKernel3/
+            if [ -f "${WORK_DIR}/out/arch/arm64/boot/Image.gz-dtb" ]; then
+              echo "Copying Image.gz-dtb..."
+              cp "${WORK_DIR}/out/arch/arm64/boot/Image.gz-dtb" ~/AnyKernel3/
+            elif [ -f "${WORK_DIR}/out/arch/arm64/boot/Image.gz" ]; then
+              echo "Copying Image.gz..."
+              cp "${WORK_DIR}/out/arch/arm64/boot/Image.gz" ~/AnyKernel3/
+            elif [ -f "${WORK_DIR}/out/arch/arm64/boot/Image" ]; then
+              echo "Copying Image..."
+              cp "${WORK_DIR}/out/arch/arm64/boot/Image" ~/AnyKernel3/
+            else
+              echo "Error: No kernel image found!"
+              exit 1
             fi
             
             # Copy dtb if separate
-            if [ -f /home/circleci/project/out/arch/arm64/boot/dtb.img ]; then
-              cp /home/circleci/project/out/arch/arm64/boot/dtb.img ~/AnyKernel3/
+            if [ -f "${WORK_DIR}/out/arch/arm64/boot/dtb.img" ]; then
+              echo "Copying dtb.img..."
+              cp "${WORK_DIR}/out/arch/arm64/boot/dtb.img" ~/AnyKernel3/
             fi
             
             # Copy kernel modules
             mkdir -p ~/AnyKernel3/modules/vendor/lib/modules
-            find /home/circleci/project/out -name "*.ko" -exec cp {} ~/AnyKernel3/modules/vendor/lib/modules/ \; 2>/dev/null || true
+            MODULE_COUNT=$(find "${WORK_DIR}/out" -name "*.ko" 2>/dev/null | wc -l)
+            if [ "$MODULE_COUNT" -gt 0 ]; then
+              echo "Copying ${MODULE_COUNT} kernel modules..."
+              find "${WORK_DIR}/out" -name "*.ko" -exec cp {} ~/AnyKernel3/modules/vendor/lib/modules/ \;
+            else
+              echo "No kernel modules found to copy"
+            fi
             
             # Update AnyKernel3 properties
             cat > ~/AnyKernel3/anykernel.sh << 'AKEOF'
@@ -159,13 +177,13 @@ jobs:
             
             # Create flashable zip
             cd ~/AnyKernel3
-            KERNEL_VERSION=$(cd /home/circleci/project && make kernelversion 2>/dev/null || echo "4.14.356")
+            KERNEL_VERSION=$(cd "${WORK_DIR}" && make kernelversion 2>/dev/null || echo "4.14.356")
             BUILD_DATE=$(date +%Y%m%d-%H%M)
             ZIP_NAME="GTA4XLVE-KernelSU-${KERNEL_VERSION}-${BUILD_DATE}.zip"
-            zip -r9 /home/circleci/project/out/${ZIP_NAME} * -x .git README.md *placeholder
+            zip -r9 "${WORK_DIR}/out/${ZIP_NAME}" * -x .git README.md *placeholder
             
             echo "Flashable zip created: ${ZIP_NAME}"
-            ls -lh /home/circleci/project/out/${ZIP_NAME}
+            ls -lh "${WORK_DIR}/out/${ZIP_NAME}"
             
       - store_artifacts:
           path: out/
