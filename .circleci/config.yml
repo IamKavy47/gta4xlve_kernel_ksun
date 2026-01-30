@@ -1,0 +1,34 @@
+version: 2.1
+jobs:
+  build_kernel:
+    docker:
+      - image: cimg/base:current # Using CircleCI's Ubuntu-based image
+    resource_class: large     # Allocates more CPU and RAM for compilation
+    steps:
+      - checkout              # Clones your code
+      
+      - run:
+          name: Sync Submodules
+          command: |
+            git submodule update --init --recursive # Fetches KernelSU-Next code
+      
+      - run:
+          name: Install Build Dependencies
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y bc bison build-essential flex git libssl-dev libncurses5-dev python3 clang lld llvm #
+            
+      - run:
+          name: Merge Config and Build
+          command: |
+            export ARCH=arm64
+            export SUBARCH=arm64
+            export CROSS_COMPILE=aarch64-linux-gnu-
+            # Combine the base atoll-perf with your gta4xlve fragment
+            make O=out vendor/atoll-perf_defconfig vendor/gta4xlve.config
+            # Compile using all available cores
+            make O=out -j$(nproc --all) CC=clang CLANG_TRIPLE=aarch64-linux-gnu-
+
+      - store_artifacts:      # Saves the finished kernel image for download
+          path: out/arch/arm64/boot/Image.gz-dtb
+          destination: kernel-build
