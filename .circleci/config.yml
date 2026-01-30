@@ -23,6 +23,7 @@ jobs:
               rsync zip unzip xz-utils \
               clang lld llvm \
               gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+              gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
               file
             
             # Clean up to save space
@@ -68,11 +69,7 @@ jobs:
             
             # Build kernel configuration
             echo "Building kernel configuration..."
-            make O=out ARCH=arm64 vendor/atoll-perf_defconfig
-            
-            # Merge device-specific configuration
-            echo "Merging device configuration..."
-            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
+            make O=out ARCH=arm64 vendor/atoll-perf_defconfig vendor/gta4xlve.config
             
             # Update config for any new options
             make O=out ARCH=arm64 olddefconfig
@@ -86,12 +83,6 @@ jobs:
               LLVM=1 \
               LLVM_IAS=1 \
               -j$(nproc --all)
-            
-            # Check if kernel image was built
-            if [ ! -f out/arch/arm64/boot/Image.gz-dtb ] && [ -f out/arch/arm64/boot/Image.gz ]; then
-              echo "Creating Image.gz-dtb..."
-              cat out/arch/arm64/boot/Image.gz out/arch/arm64/boot/dts/qcom/*.dtb > out/arch/arm64/boot/Image.gz-dtb
-            fi
             
             echo "Kernel build completed!"
             ls -lh out/arch/arm64/boot/
@@ -141,7 +132,7 @@ jobs:
             device.name1=gta4xlve
             device.name2=gta4xlvewifi
             device.name3=SM-P610
-            supported.versions=11-14
+            supported.versions=12-13
             supported.patchlevels=
             }
             
@@ -168,7 +159,7 @@ jobs:
             
             # Create flashable zip
             cd ~/AnyKernel3
-            KERNEL_VERSION="4.14.356"
+            KERNEL_VERSION=$(cd /home/circleci/project && make kernelversion 2>/dev/null || echo "4.14.356")
             BUILD_DATE=$(date +%Y%m%d-%H%M)
             ZIP_NAME="GTA4XLVE-KernelSU-${KERNEL_VERSION}-${BUILD_DATE}.zip"
             zip -r9 /home/circleci/project/out/${ZIP_NAME} * -x .git README.md *placeholder
@@ -177,24 +168,8 @@ jobs:
             ls -lh /home/circleci/project/out/${ZIP_NAME}
             
       - store_artifacts:
-          path: out/arch/arm64/boot/Image
-          destination: kernel-image/Image
-          
-      - store_artifacts:
-          path: out/arch/arm64/boot/Image.gz
-          destination: kernel-image/Image.gz
-          
-      - store_artifacts:
-          path: out/arch/arm64/boot/Image.gz-dtb
-          destination: kernel-image/Image.gz-dtb
-          
-      - store_artifacts:
           path: out/
           destination: build-artifacts
-          
-      - store_artifacts:
-          path: out/*.zip
-          destination: flashable-zip
 
 workflows:
   version: 2.1
