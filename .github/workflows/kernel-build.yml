@@ -45,6 +45,7 @@ jobs:
             libncurses5-dev libssl-dev python3 python-is-python3 \
             rsync zip unzip wget curl ca-certificates \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
             device-tree-compiler
 
       - name: Setup Proton Clang
@@ -63,13 +64,13 @@ jobs:
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
           cd AnyKernel3
           # Configure for Galaxy Tab S6 Lite (gta4xlve)
-          rm -f .git/config
+          # Create AnyKernel3 configuration script
           cat > anykernel.sh << 'EOF'
           # AnyKernel3 Ramdisk Mod Script
           # osm0sis @ xda-developers
 
           ## AnyKernel setup
-          properties() { '
+          properties() {
           kernel.string=GTA4XLVE KernelSU Kernel
           do.devicecheck=1
           do.modules=0
@@ -80,7 +81,7 @@ jobs:
           device.name2=gta4xl
           device.name3=SM-P613
           device.name4=SM-P610
-          '; }
+          }
 
           ## AnyKernel install
           boot_img_hdr_ver=2
@@ -109,21 +110,22 @@ jobs:
 
           mkdir -p out
 
-          # Generate config
+          # Generate base config
           make O=out ARCH=arm64 vendor/atoll-perf_defconfig
 
-          # Merge device-specific config with KSU enabled
-          cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
+          # Merge device-specific config with KSU enabled using proper method
+          if [ -f scripts/kconfig/merge_config.sh ]; then
+            scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/vendor/gta4xlve.config
+          else
+            # Fallback to cat if merge script doesn't exist
+            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
+          fi
 
           # Non-interactively resolve config
           make O=out ARCH=arm64 olddefconfig
 
           # Build kernel Image.gz-dtb and dtbo
-          make O=out ARCH=arm64 \
-            CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            -j$(nproc --all)
+          make O=out ARCH=arm64 -j$(nproc --all)
 
       - name: Check Build Output
         run: |
@@ -143,6 +145,9 @@ jobs:
         run: |
           cd ~/AnyKernel3
 
+          # Clean unnecessary files from AnyKernel3
+          rm -rf .git* README.md ramdisk modules patch
+
           # Copy kernel image
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb Image.gz-dtb
@@ -158,11 +163,12 @@ jobs:
             echo "DTBO image copied"
           fi
 
-          # Create flashable ZIP
-          zip -r9 ../gta4xlve-kernelsu-kernel-$(date +%Y%m%d-%H%M).zip * -x .git README.md .gitignore
+          # Create flashable ZIP with fixed name
+          ZIPNAME="gta4xlve-kernelsu-kernel-$(date +%Y%m%d-%H%M).zip"
+          zip -r9 ../$ZIPNAME * -x .git README.md .gitignore
 
           # Move to workspace
-          mv ../gta4xlve-kernelsu-kernel-*.zip $GITHUB_WORKSPACE/
+          mv ../$ZIPNAME $GITHUB_WORKSPACE/
 
       - name: Upload Kernel Image
         uses: actions/upload-artifact@v4
