@@ -16,35 +16,45 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          # Keeping your submodule/fetch-depth logic
           submodules: recursive
           fetch-depth: 0
-
-      - name: Install Python 2 and Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python2 bc bison build-essential cpio flex git kmod \
-            libncurses5-dev libssl-dev rsync zip unzip wget curl ca-certificates \
-            device-tree-compiler
-          # Force python2 as the default for the build session
-          sudo ln -sf /usr/bin/python2 /usr/bin/python
 
       - name: Setup KernelSU-Next
         run: |
           if [ ! -d "KernelSU-Next/kernel" ]; then
             git submodule update --init --recursive
           fi
+          # Using your specific drivers/kernelsu symlink logic
           mkdir -p drivers
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
-          echo "✓ KernelSU-Next linked"
+          echo "✓ KernelSU-Next linked to drivers/kernelsu"
+
+      - name: Setup Build Environment (Python 2 Fix)
+        run: |
+          sudo apt-get update
+          # Adding python2 and python-is-python2 for your build-all.py script
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ccache cpio flex git kmod \
+            libncurses5-dev libssl-dev python2 rsync zip unzip wget curl ca-certificates \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            device-tree-compiler
+          
+          # This ensures 'python' points to 'python2' for the SyntaxError fix
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
 
       - name: Setup Proton Clang
         run: |
-          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/proton-clang
+          # Reverting to your preferred directory structure
+          mkdir -p ~/toolchains
+          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
 
       - name: Setup AnyKernel3
         run: |
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ~/AnyKernel3
-          cd ~/AnyKernel3
+          cd ~
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
+          cd AnyKernel3
+          # Keeping your specific anykernel.sh configuration
           cat > anykernel.sh << 'EOF'
           properties() {
           kernel.string=GTA4XLVE KernelSU Kernel
@@ -52,6 +62,7 @@ jobs:
           do.modules=0
           do.systemless=1
           do.cleanup=1
+          do.cleanuponabort=0
           device.name1=gta4xlve
           device.name2=gta4xl
           device.name3=SM-P613
@@ -65,37 +76,36 @@ jobs:
 
       - name: Build Kernel
         run: |
-          export PATH=~/proton-clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
-          export CC=clang
+          export PATH=~/toolchains/clang/bin:$PATH
           
-          # Fix for "CROSS_COMPILE64" error
+          # Fix for "CROSS_COMPILE64" failure
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE64=aarch64-linux-gnu-
           
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          export CC=clang
           export CLANG_TRIPLE=aarch64-linux-gnu-
-          export LLVM=1
-          export LLVM_IAS=1
           export KBUILD_BUILD_USER=GitHub-Actions
           export KBUILD_BUILD_HOST=GitHub
+          
+          # Important for Proton Clang stability on Snapdragon 720G
+          export LLVM=1
+          export LLVM_IAS=1
 
-          # Using python2 to avoid the Print SyntaxError
-          python2 scripts/build-all.py --device gta4xlve --variant ksun
+          # Run your script using Python 2 to fix the 'print' syntax error
+          python scripts/build-all.py --device gta4xlve --variant ksun
 
       - name: Create AnyKernel3 Flashable ZIP
         run: |
           cd ~/AnyKernel3
           rm -rf .git* README.md
-          
-          # Check output locations
+          # Copying build output from the script (searching common locations)
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
           elif [ -f $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb ]; then
             cp $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb .
           fi
-
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
           zip -r9 $GITHUB_WORKSPACE/$ZIPNAME *
           echo "ZIPNAME=$ZIPNAME" >> $GITHUB_ENV
