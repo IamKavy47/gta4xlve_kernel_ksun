@@ -1,24 +1,27 @@
-name: Optimized Kernel Build (Cached)
+name: LineageOS Style Kernel Build
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "copilot/fix-circleci-config-for-kernel" ]
+    branches: [ "lineage-23.2" ]
 
 jobs:
   build:
-    name: Build GTA4XLVE Kernel
+    name: Build Kernel (LineageOS Logic)
     runs-on: ubuntu-22.04
     permissions:
       contents: write
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Source
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
 
+      # -----------------------------------------------------------------------
+      # CACHING: Saves time by not re-downloading Clang every run
+      # -----------------------------------------------------------------------
       - name: Cache Proton Clang
         id: cache-clang
         uses: actions/cache@v4
@@ -30,20 +33,22 @@ jobs:
         if: steps.cache-clang.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/toolchains
-          echo "Cache miss - Cloning Proton Clang..."
+          echo "Cloning Proton Clang..."
           git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
 
-      - name: Install Python 2 & Build Tools
+      # -----------------------------------------------------------------------
+      # DEPENDENCIES: Standard build tools required by kernel.mk
+      # -----------------------------------------------------------------------
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python2 bc bison build-essential ccache cpio flex git kmod \
+          sudo apt-get install -y bc bison build-essential ccache cpio flex git kmod \
             libncurses5-dev libssl-dev rsync zip unzip wget curl ca-certificates \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
-          
-          # Force python2
-          sudo ln -sf /usr/bin/python2 /usr/bin/python
-          chmod +x scripts/build-all.py
 
+      # -----------------------------------------------------------------------
+      # KERNELSU: The "Trick" - Linking it before build
+      # -----------------------------------------------------------------------
       - name: Setup KernelSU-Next
         run: |
           if [ ! -d "KernelSU-Next/kernel" ]; then
@@ -51,6 +56,11 @@ jobs:
           fi
           mkdir -p drivers
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
+          
+          # Ensure it's in the Makefile (Safety check)
+          if ! grep -q "kernelsu" drivers/Makefile; then
+            echo "obj-y += kernelsu/" >> drivers/Makefile
+          fi
           echo "✓ KernelSU-Next linked"
 
       - name: Setup AnyKernel3
@@ -59,7 +69,7 @@ jobs:
           cd ~/AnyKernel3
           cat > anykernel.sh << 'EOF'
           properties() {
-          kernel.string=GTA4XLVE KernelSU Kernel
+          kernel.string=GTA4XLVE KernelSU-Next
           do.devicecheck=1
           do.modules=0
           do.systemless=1
@@ -75,10 +85,13 @@ jobs:
           EOF
           chmod +x anykernel.sh
 
-      - name: Build Kernel
+      # -----------------------------------------------------------------------
+      # BUILD LOGIC: Extracted directly from LineageOS kernel.mk
+      # -----------------------------------------------------------------------
+      - name: Compile Kernel
         run: |
+          # 1. Setup Environment Variables (mimicking BoardConfig.mk)
           export PATH=~/toolchains/clang/bin:$PATH
-          
           export ARCH=arm64
           export SUBARCH=arm64
           export CC=clang
@@ -86,29 +99,58 @@ jobs:
           export CROSS_COMPILE64=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
+          
+          # Flags found in kernel.mk
           export LLVM=1
           export LLVM_IAS=1
-          export KBUILD_BUILD_USER=GitHub-Actions
-          export KBUILD_BUILD_HOST=GitHub
-
-          echo "Starting build for target: atoll-perf-llvm-64"
           
-          # TARGET FIXED HERE:
-          python scripts/build-all.py atoll-perf-llvm-64
+          # 2. Clean
+          mkdir -p out
+          make O=out clean mrproper
 
-      - name: Create AnyKernel3 Flashable ZIP
+          # 3. Build Base Config (TARGET_KERNEL_CONFIG)
+          echo "--> Generating Base Config: vendor/atoll-perf_defconfig"
+          make O=out vendor/atoll-perf_defconfig
+
+          # 4. Merge Fragment (The 'kernel.mk' Logic)
+          # We search for the gta4xlve fragment and merge it using the kernel's script
+          FRAGMENT="arch/arm64/configs/vendor/gta4xlve.config"
+          if [ ! -f $FRAGMENT ]; then
+             FRAGMENT="arch/arm64/configs/gta4xlve.config"
+          fi
+          
+          if [ -f $FRAGMENT ]; then
+             echo "--> Merging Fragment: $FRAGMENT"
+             # This is the exact script Lineage uses to merge configs
+             scripts/kconfig/merge_config.sh -m -O out out/.config $FRAGMENT
+             make O=out olddefconfig
+          else
+             echo "!! ERROR: gta4xlve.config fragment not found!"
+             exit 1
+          fi
+
+          # 5. Compile (KERNEL_MAKE_CMD)
+          echo "--> Compiling Image.gz-dtb and dtbo..."
+          make O=out -j$(nproc) Image.gz-dtb dtbo.img 2>&1 | tee build.log
+
+      # -----------------------------------------------------------------------
+      # PACKAGING: AnyKernel3
+      # -----------------------------------------------------------------------
+      - name: Create Flashable ZIP
         run: |
           cd ~/AnyKernel3
           rm -rf .git* README.md
           
-          # Check output locations
+          # Copy Artifacts
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
-            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
-          elif [ -f $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb ]; then
-            cp $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb .
+             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
           else
-            echo "Error: Image.gz-dtb not found!"
-            exit 1
+             echo "Build Failed: Image.gz-dtb not found"
+             exit 1
+          fi
+
+          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img ]; then
+             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img .
           fi
 
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
@@ -120,3 +162,10 @@ jobs:
         with:
           name: kernelsu-flashable-zip
           path: ${{ env.ZIPNAME }}
+
+      - name: Upload Build Log (Debug)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
