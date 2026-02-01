@@ -1,203 +1,56 @@
-name: Kernel Build with KernelSU
+name: Build gta4xlve Kernel (KSUN)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual trigger
   push:
-    # Triggers on push to any branch
-  pull_request:
-    # Also triggers on pull requests
+    branches: [ "copilot/fix-circleci-config-for-kernel" ]
 
 jobs:
   build:
-    name: Build GTA4XLVE Kernel with KSU
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Kernel Source
         uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          submodules: 'recursive'
+          fetch-depth: 1
 
-      - name: Setup KernelSU-Next
-        run: |
-          # Verify KernelSU-Next submodule is initialized
-          if [ ! -d "KernelSU-Next/kernel" ]; then
-            echo "KernelSU-Next submodule not properly initialized"
-            git submodule update --init --recursive
-          fi
-
-          # Create symlink for KernelSU-Next integration
-          if [ -d "KernelSU-Next/kernel" ]; then
-            ln -sf ../KernelSU-Next/kernel drivers/kernelsu
-            echo "✓ KernelSU-Next linked to drivers/kernelsu"
-            ls -la drivers/kernelsu
-          else
-            echo "✗ KernelSU-Next kernel directory not found"
-            exit 1
-          fi
-
-      - name: Setup Build Environment
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            bc bison build-essential ccache cpio flex git kmod \
-            libncurses5-dev libssl-dev python3 python-is-python3 \
-            rsync zip unzip wget curl ca-certificates \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            device-tree-compiler
+          sudo apt-get install -y bc bison build-essential flex gcc-multilib g++-multilib git gnupg gperf lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev python3-pip python3-setuptools
 
-      - name: Setup Proton Clang
+      - name: Setup Toolchains (Clang & GCC)
         run: |
-          mkdir -p ~/toolchains
-          cd ~/toolchains
-          # Using Proton Clang - optimized for kernel builds, faster than AOSP
-          wget -q -r -l1 https://github.com/kdrag0n/proton-clang/archive/refs/heads/master.tar.gz -O proton-clang.tar.gz
-          tar -xzf proton-clang.tar.gz
-          mv proton-clang-master clang
-          rm proton-clang.tar.gz
+          mkdir -p prebuilts/clang/host/linux-x86
+          mkdir -p prebuilts/gcc/linux-x86/aarch64
+          mkdir -p prebuilts/gcc/linux-x86/arm
+          
+          # Download AOSP Clang 17 (r487747c)
+          git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 --depth=1 -b master-kernel-build-2023 prebuilts/clang/host/linux-x86/clang-r487747c
+          
+          # Download GCC for linking
+          git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+          git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 --depth=1 prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
 
-      - name: Setup AnyKernel3
+      - name: Build Kernel using build-all.py
         run: |
-          cd ~
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
-          cd AnyKernel3
-          # Configure for Galaxy Tab S6 Lite (gta4xlve)
-          # Create AnyKernel3 configuration script
-          cat > anykernel.sh << 'EOF'
-          # AnyKernel3 Ramdisk Mod Script
-          # osm0sis @ xda-developers
+          # Ensure toolchains are in PATH for the script
+          export PATH=$(pwd)/prebuilts/clang/host/linux-x86/clang-r487747c/bin:$(pwd)/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin:$(pwd)/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin:$PATH
+          
+          # Execute your custom build script
+          python3 scripts/build-all.py --device gta4xlve --variant ksun
 
-          ## AnyKernel setup
-          properties() {
-          kernel.string=GTA4XLVE KernelSU Kernel
-          do.devicecheck=1
-          do.modules=0
-          do.systemless=1
-          do.cleanup=1
-          do.cleanuponabort=0
-          device.name1=gta4xlve
-          device.name2=gta4xl
-          device.name3=SM-P613
-          device.name4=SM-P610
-          }
-
-          ## AnyKernel install
-          boot_img_hdr_ver=2
-          split_boot;
-          flash_boot;
-          EOF
-          chmod +x anykernel.sh
-
-      - name: Fix qcacld-3.0 Werror
+      - name: Package with AnyKernel3
         run: |
-          # Remove -Werror from Wi-Fi driver to prevent build errors
-          find drivers/staging/qcacld-3.0 -name "Kbuild" -exec sed -i 's/-Werror//g' {} + 2>/dev/null || true
-          find drivers/staging/qcacld-3.0 -name "Makefile" -exec sed -i 's/-Werror//g' {} + 2>/dev/null || true
+          # Locate the built Image.gz-dtb (assuming it's in out/arch/arm64/boot/)
+          # This step uses the tools/AnyKernel3 directory in your repo
+          cp out/arch/arm64/boot/Image.gz-dtb tools/AnyKernel3/
+          cd tools/AnyKernel3
+          zip -r9 ../../gta4xlve-kernel-ksun.zip * -x .git README.md
 
-      - name: Build Kernel
-        run: |
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export PATH=~/toolchains/clang/bin:$PATH
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CC=clang
-          export CLANG_TRIPLE=aarch64-linux-gnu-
-          export KBUILD_BUILD_USER=GitHub-Actions
-          export KBUILD_BUILD_HOST=GitHub
-
-          mkdir -p out
-
-          # Generate base config
-          make O=out ARCH=arm64 vendor/atoll-perf_defconfig
-
-          # Merge device-specific config with KSU enabled using proper method
-          if [ -f scripts/kconfig/merge_config.sh ]; then
-            scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/vendor/gta4xlve.config
-          else
-            # Fallback to cat if merge script doesn't exist
-            cat arch/arm64/configs/vendor/gta4xlve.config >> out/.config
-          fi
-
-          # Non-interactively resolve config
-          make O=out ARCH=arm64 olddefconfig
-
-          # Build kernel Image.gz-dtb and dtbo using all available cores
-          # Capture all warnings and errors to build.log
-          echo "Building with $(nproc) parallel jobs..."
-          make O=out ARCH=arm64 -j$(nproc) 2>&1 | tee build.log
-
-      - name: Check Build Output
-        run: |
-          ls -lh out/arch/arm64/boot/
-          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-            echo "✓ Kernel Image.gz-dtb built successfully"
-            ls -lh out/arch/arm64/boot/Image.gz-dtb
-          elif [ -f out/arch/arm64/boot/Image.gz ]; then
-            echo "✓ Kernel Image.gz built successfully"
-            ls -lh out/arch/arm64/boot/Image.gz
-          else
-            echo "✗ Kernel build failed - no Image found"
-            exit 1
-          fi
-
-      - name: Create AnyKernel3 Flashable ZIP
-        run: |
-          cd ~/AnyKernel3
-
-          # Clean unnecessary files from AnyKernel3
-          rm -rf .git* README.md ramdisk modules patch
-
-          # Copy kernel image
-          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
-            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb Image.gz-dtb
-            echo "Using Image.gz-dtb"
-          elif [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
-            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz Image.gz
-            echo "Using Image.gz"
-          fi
-
-          # Copy dtbo if exists
-          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img ]; then
-            cp $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img dtbo.img
-            echo "DTBO image copied"
-          fi
-
-          # Create flashable ZIP with fixed name
-          ZIPNAME="gta4xlve-kernelsu-kernel-$(date +%Y%m%d-%H%M).zip"
-          zip -r9 ../$ZIPNAME * -x .git README.md .gitignore
-
-          # Move to workspace
-          mv ../$ZIPNAME $GITHUB_WORKSPACE/
-
-      - name: Upload Kernel Image
+      - name: Upload Flashable Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-image
-          path: |
-            out/arch/arm64/boot/Image.gz-dtb
-            out/arch/arm64/boot/Image.gz
-            out/arch/arm64/boot/dtbo.img
-          if-no-files-found: ignore
-
-      - name: Upload Flashable ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernelsu-flashable-zip
-          path: gta4xlve-kernelsu-kernel-*.zip
-
-      - name: Upload Build Log
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Upload boot.img (if exists)
-        uses: actions/upload-artifact@v4
-        with:
-          name: boot-image
-          path: out/arch/arm64/boot/boot.img
-          if-no-files-found: ignore
+          name: gta4xlve-KSUN-Kernel
+          path: gta4xlve-kernel-ksun.zip
