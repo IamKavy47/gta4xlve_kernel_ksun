@@ -19,7 +19,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      # CACHE STEP: This saves ~5-10 minutes by reusing the compiler
       - name: Cache Proton Clang
         id: cache-clang
         uses: actions/cache@v4
@@ -28,7 +27,6 @@ jobs:
           key: ${{ runner.os }}-proton-clang-v1
 
       - name: Setup Proton Clang
-        # Only download if cache was NOT found
         if: steps.cache-clang.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/toolchains
@@ -38,16 +36,12 @@ jobs:
       - name: Install Python 2 & Build Tools
         run: |
           sudo apt-get update
-          # Removed 'python-is-python2' which caused the error
           sudo apt-get install -y python2 bc bison build-essential ccache cpio flex git kmod \
             libncurses5-dev libssl-dev rsync zip unzip wget curl ca-certificates \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
           
-          # Manually force 'python' command to use python2
+          # Force python2
           sudo ln -sf /usr/bin/python2 /usr/bin/python
-          python --version  # Should print Python 2.7.x
-
-          # Make script executable
           chmod +x scripts/build-all.py
 
       - name: Setup KernelSU-Next
@@ -83,7 +77,6 @@ jobs:
 
       - name: Build Kernel
         run: |
-          # Point to the cached clang path
           export PATH=~/toolchains/clang/bin:$PATH
           
           export ARCH=arm64
@@ -98,24 +91,23 @@ jobs:
           export KBUILD_BUILD_USER=GitHub-Actions
           export KBUILD_BUILD_HOST=GitHub
 
-          echo "Starting build..."
-          # Running with positional argument 'gta4xlve'
-          python scripts/build-all.py gta4xlve
+          echo "Starting build for target: atoll-perf-llvm-64"
+          
+          # TARGET FIXED HERE:
+          python scripts/build-all.py atoll-perf-llvm-64
 
       - name: Create AnyKernel3 Flashable ZIP
         run: |
           cd ~/AnyKernel3
           rm -rf .git* README.md
           
-          # Check for image in common locations
+          # Check output locations
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
-            echo "Found Image in out/ directory"
             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
           elif [ -f $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb ]; then
-            echo "Found Image in arch/ directory"
             cp $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb .
           else
-            echo "Error: Image.gz-dtb not found! Build likely failed."
+            echo "Error: Image.gz-dtb not found!"
             exit 1
           fi
 
