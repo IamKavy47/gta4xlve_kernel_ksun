@@ -1,4 +1,4 @@
-name: Final Kernel Build (Python 2 + Fixed Args)
+name: Optimized Kernel Build (Cached)
 
 on:
   workflow_dispatch:
@@ -19,18 +19,35 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install Python 2 & Dependencies
+      # CACHE STEP: This saves ~5-10 minutes by reusing the compiler
+      - name: Cache Proton Clang
+        id: cache-clang
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/clang
+          key: ${{ runner.os }}-proton-clang-v1
+
+      - name: Setup Proton Clang
+        # Only download if cache was NOT found
+        if: steps.cache-clang.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/toolchains
+          echo "Cache miss - Cloning Proton Clang..."
+          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
+
+      - name: Install Python 2 & Build Tools
         run: |
           sudo apt-get update
-          # Install python2 and python-is-python2 to fix 'print' syntax errors
-          sudo apt-get install -y python2 python-is-python2
-          
-          # Install standard build tools
-          sudo apt-get install -y bc bison build-essential ccache cpio flex git kmod \
+          # Removed 'python-is-python2' which caused the error
+          sudo apt-get install -y python2 bc bison build-essential ccache cpio flex git kmod \
             libncurses5-dev libssl-dev rsync zip unzip wget curl ca-certificates \
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
+          
+          # Manually force 'python' command to use python2
+          sudo ln -sf /usr/bin/python2 /usr/bin/python
+          python --version  # Should print Python 2.7.x
 
-          # Make sure scripts are executable
+          # Make script executable
           chmod +x scripts/build-all.py
 
       - name: Setup KernelSU-Next
@@ -42,15 +59,10 @@ jobs:
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
           echo "✓ KernelSU-Next linked"
 
-      - name: Setup Proton Clang
-        run: |
-          mkdir -p $HOME/toolchains
-          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 $HOME/toolchains/clang
-
       - name: Setup AnyKernel3
         run: |
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git $HOME/AnyKernel3
-          cd $HOME/AnyKernel3
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ~/AnyKernel3
+          cd ~/AnyKernel3
           cat > anykernel.sh << 'EOF'
           properties() {
           kernel.string=GTA4XLVE KernelSU Kernel
@@ -69,44 +81,33 @@ jobs:
           EOF
           chmod +x anykernel.sh
 
-      - name: Build Kernel (Corrected Command)
+      - name: Build Kernel
         run: |
-          # Set up paths using $HOME for safety
-          export PATH=$HOME/toolchains/clang/bin:$PATH
+          # Point to the cached clang path
+          export PATH=~/toolchains/clang/bin:$PATH
           
-          # Kernel Architecture Variables
           export ARCH=arm64
           export SUBARCH=arm64
-          
-          # Toolchain Definitions
           export CC=clang
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE64=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
-          
-          # Proton Clang Specifics (Required for Atoll)
           export LLVM=1
           export LLVM_IAS=1
-          
-          # Build Info
           export KBUILD_BUILD_USER=GitHub-Actions
           export KBUILD_BUILD_HOST=GitHub
 
-          echo "Starting build with Python 2..."
-          python2 --version
-          
-          # COMMAND FIX: 
-          # Removed --device and --variant flags.
-          # Passing 'gta4xlve' as the positional target argument.
-          python2 scripts/build-all.py gta4xlve
+          echo "Starting build..."
+          # Running with positional argument 'gta4xlve'
+          python scripts/build-all.py gta4xlve
 
       - name: Create AnyKernel3 Flashable ZIP
         run: |
-          cd $HOME/AnyKernel3
+          cd ~/AnyKernel3
           rm -rf .git* README.md
           
-          # Check common output locations for the compiled image
+          # Check for image in common locations
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
             echo "Found Image in out/ directory"
             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
@@ -114,7 +115,7 @@ jobs:
             echo "Found Image in arch/ directory"
             cp $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb .
           else
-            echo "Error: Image.gz-dtb not found!"
+            echo "Error: Image.gz-dtb not found! Build likely failed."
             exit 1
           fi
 
