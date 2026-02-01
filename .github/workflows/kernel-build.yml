@@ -3,7 +3,7 @@ name: LineageOS Style Kernel Build
 on:
   workflow_dispatch:
   push:
-    branches: [ "lineage-23.2" ]
+    branches: [ "copilot/fix-circleci-config-for-kernel" ]
 
 jobs:
   build:
