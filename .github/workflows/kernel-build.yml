@@ -1,4 +1,4 @@
-name: Kernel Build with KernelSU
+name: Final Kernel Build (Python 2 + Fixed Args)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build GTA4XLVE Kernel with KSU
+    name: Build GTA4XLVE Kernel
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -16,45 +16,41 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          # Keeping your submodule/fetch-depth logic
           submodules: recursive
           fetch-depth: 0
+
+      - name: Install Python 2 & Dependencies
+        run: |
+          sudo apt-get update
+          # Install python2 and python-is-python2 to fix 'print' syntax errors
+          sudo apt-get install -y python2 python-is-python2
+          
+          # Install standard build tools
+          sudo apt-get install -y bc bison build-essential ccache cpio flex git kmod \
+            libncurses5-dev libssl-dev rsync zip unzip wget curl ca-certificates \
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
+
+          # Make sure scripts are executable
+          chmod +x scripts/build-all.py
 
       - name: Setup KernelSU-Next
         run: |
           if [ ! -d "KernelSU-Next/kernel" ]; then
             git submodule update --init --recursive
           fi
-          # Using your specific drivers/kernelsu symlink logic
           mkdir -p drivers
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
-          echo "✓ KernelSU-Next linked to drivers/kernelsu"
-
-      - name: Setup Build Environment (Python 2 Fix)
-        run: |
-          sudo apt-get update
-          # Adding python2 and python-is-python2 for your build-all.py script
-          sudo apt-get install -y --no-install-recommends \
-            bc bison build-essential ccache cpio flex git kmod \
-            libncurses5-dev libssl-dev python2 rsync zip unzip wget curl ca-certificates \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            device-tree-compiler
-          
-          # This ensures 'python' points to 'python2' for the SyntaxError fix
-          sudo ln -sf /usr/bin/python2 /usr/bin/python
+          echo "✓ KernelSU-Next linked"
 
       - name: Setup Proton Clang
         run: |
-          # Reverting to your preferred directory structure
-          mkdir -p ~/toolchains
-          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
+          mkdir -p $HOME/toolchains
+          git clone https://github.com/kdrag0n/proton-clang.git --depth=1 $HOME/toolchains/clang
 
       - name: Setup AnyKernel3
         run: |
-          cd ~
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git
-          cd AnyKernel3
-          # Keeping your specific anykernel.sh configuration
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git $HOME/AnyKernel3
+          cd $HOME/AnyKernel3
           cat > anykernel.sh << 'EOF'
           properties() {
           kernel.string=GTA4XLVE KernelSU Kernel
@@ -62,7 +58,6 @@ jobs:
           do.modules=0
           do.systemless=1
           do.cleanup=1
-          do.cleanuponabort=0
           device.name1=gta4xlve
           device.name2=gta4xl
           device.name3=SM-P613
@@ -74,38 +69,55 @@ jobs:
           EOF
           chmod +x anykernel.sh
 
-      - name: Build Kernel
+      - name: Build Kernel (Corrected Command)
         run: |
+          # Set up paths using $HOME for safety
+          export PATH=$HOME/toolchains/clang/bin:$PATH
+          
+          # Kernel Architecture Variables
           export ARCH=arm64
           export SUBARCH=arm64
-          export PATH=~/toolchains/clang/bin:$PATH
           
-          # Fix for "CROSS_COMPILE64" failure
+          # Toolchain Definitions
+          export CC=clang
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE64=aarch64-linux-gnu-
-          
-          export CC=clang
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
-          export KBUILD_BUILD_USER=GitHub-Actions
-          export KBUILD_BUILD_HOST=GitHub
           
-          # Important for Proton Clang stability on Snapdragon 720G
+          # Proton Clang Specifics (Required for Atoll)
           export LLVM=1
           export LLVM_IAS=1
+          
+          # Build Info
+          export KBUILD_BUILD_USER=GitHub-Actions
+          export KBUILD_BUILD_HOST=GitHub
 
-          # Run your script using Python 2 to fix the 'print' syntax error
-          python scripts/build-all.py --device gta4xlve --variant ksun
+          echo "Starting build with Python 2..."
+          python2 --version
+          
+          # COMMAND FIX: 
+          # Removed --device and --variant flags.
+          # Passing 'gta4xlve' as the positional target argument.
+          python2 scripts/build-all.py gta4xlve
 
       - name: Create AnyKernel3 Flashable ZIP
         run: |
-          cd ~/AnyKernel3
+          cd $HOME/AnyKernel3
           rm -rf .git* README.md
-          # Copying build output from the script (searching common locations)
+          
+          # Check common output locations for the compiled image
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
+            echo "Found Image in out/ directory"
             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
           elif [ -f $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb ]; then
+            echo "Found Image in arch/ directory"
             cp $GITHUB_WORKSPACE/arch/arm64/boot/Image.gz-dtb .
+          else
+            echo "Error: Image.gz-dtb not found!"
+            exit 1
           fi
+
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
           zip -r9 $GITHUB_WORKSPACE/$ZIPNAME *
           echo "ZIPNAME=$ZIPNAME" >> $GITHUB_ENV
