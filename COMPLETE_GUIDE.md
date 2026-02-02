@@ -303,34 +303,30 @@ Error: Failed to install module script
 - URL: https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
 - Setup: Official setup script from KernelSU-Next
 - Command: `curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s v1.1.1`
-- Manual Hooks: 6 hooks integrated
-- Hook Check: ksu_handle_sys_reboot verified
+- Manual Hooks: 5 hooks integrated
+- Hook Check: ksu_handle_faccessat verified
 
 ### Manual Hooks Integrated
 
 KernelSU-Next v1.1.1 requires manual hooks for kernel 4.14 (kprobes support limited):
 
-1. **kernel/reboot.c**: `ksu_handle_sys_reboot`
-   - Purpose: Intercept reboot syscall
-   - **Required for**: Build verification (checked by Kbuild)
-
-2. **fs/exec.c**: `ksu_handle_execveat`, `ksu_handle_execveat_sucompat`
+1. **fs/exec.c**: `ksu_handle_execveat`, `ksu_handle_execveat_sucompat`
    - Purpose: Intercept program execution
    - **Required for**: Root permission management, su compatibility
 
-3. **fs/open.c**: `ksu_handle_faccessat`
+2. **fs/open.c**: `ksu_handle_faccessat`
    - Purpose: Intercept file access checks
-   - **Required for**: Access control
+   - **Required for**: Access control, build verification (checked by Kbuild)
 
-4. **fs/read_write.c**: `ksu_handle_vfs_read`
+3. **fs/read_write.c**: `ksu_handle_vfs_read`
    - Purpose: Intercept VFS read operations
    - **Required for**: File read monitoring
 
-5. **fs/stat.c**: `ksu_handle_stat`
+4. **fs/stat.c**: `ksu_handle_stat`
    - Purpose: Intercept file stat operations
    - **Required for**: Metadata access control
 
-6. **fs/devpts/inode.c**: `ksu_handle_devpts`
+5. **fs/devpts/inode.c**: `ksu_handle_devpts`
    - Purpose: Intercept devpts operations
    - **Required for**: PTY/terminal management
 
@@ -353,8 +349,10 @@ KSU Version: 30000 + commit_count + 60
 **Hook Check** (from KernelSU-Next/kernel/Kbuild):
 ```makefile
 ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)
-HAVE_KSU_HOOK := $(shell grep -q "ksu_handle_sys_reboot" $(srctree)/kernel/reboot.c && echo 0 || echo 1)
+HAVE_KSU_HOOK := $(shell grep -q "ksu_handle_faccessat" $(srctree)/fs/open.c && echo 0 || echo 1)
 ```
+
+**Note**: v1.1.1 checks for `ksu_handle_faccessat` in fs/open.c, NOT sys_reboot
 
 ### Build Targets
 
@@ -394,8 +392,8 @@ ramdisk_compression=auto
 
 **"No hooks were defined" error**:
 - **Cause**: Hook check fails during build
-- **Solution**: Verify all 6 manual hooks are in kernel source
-- **Check**: `grep "ksu_handle_sys_reboot" kernel/reboot.c` should return results
+- **Solution**: Verify all 5 manual hooks are in kernel source
+- **Check**: `grep "ksu_handle_faccessat" fs/open.c` should return results
 
 **DTB compilation errors**:
 - **Cause**: Trying to build incompatible DTB targets
