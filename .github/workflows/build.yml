@@ -51,19 +51,31 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Setup KernelSU-Next
         run: |
+          # For kernel 4.14, we MUST use the legacy branch
           if [ ! -d "KernelSU-Next/kernel" ]; then
             git submodule update --init --recursive
           fi
           
-          # Calculate KernelSU version upfront
+          # Ensure we're on the legacy branch (for kernel 4.14)
           cd KernelSU-Next
+          git fetch origin
+          git checkout legacy
+          git pull origin legacy
+          
+          # Calculate KernelSU version upfront
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
           KSU_VERSION=$((30000 + KSU_GIT_VERSION + 60))
           KSU_GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v3.0.0")
           cd ..
           
-          echo "KernelSU Version: $KSU_VERSION"
-          echo "KernelSU Tag: $KSU_GIT_TAG"
+          echo "=========================================="
+          echo "KernelSU-Next Configuration (Legacy Branch for 4.14)"
+          echo "=========================================="
+          echo "Branch: legacy (for kernel 4.14)"
+          echo "Commit Count: $KSU_GIT_VERSION"
+          echo "Calculated Version: $KSU_VERSION"
+          echo "Git Tag: $KSU_GIT_TAG"
+          echo "=========================================="
           
           # Export for later use
           echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
@@ -87,7 +99,7 @@ jobs:
           echo "Applying KernelSU hook check fix..."
           patch -p1 < kernelsu_hook_check.patch
           
-          echo "✓ KernelSU-Next linked and patched"
+          echo "✓ KernelSU-Next (legacy branch) linked and patched"
           echo "✓ Version: $KSU_VERSION ($KSU_GIT_TAG)"
 
       - name: Setup AnyKernel3
