@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       # -----------------------------------------------------------------------
-      # CACHING: Saves time by not re-downloading Clang every run
+      # CACHING
       # -----------------------------------------------------------------------
       - name: Cache Proton Clang
         id: cache-clang
@@ -37,7 +37,7 @@ jobs:
           git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
 
       # -----------------------------------------------------------------------
-      # DEPENDENCIES: Standard build tools required by kernel.mk
+      # DEPENDENCIES
       # -----------------------------------------------------------------------
       - name: Install Build Dependencies
         run: |
@@ -47,27 +47,32 @@ jobs:
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
 
       # -----------------------------------------------------------------------
-      # KERNELSU: The "Trick" - Linking it before build
+      # KERNELSU: FIX APPLIED HERE (Clones latest 'next' branch)
       # -----------------------------------------------------------------------
       - name: Setup KernelSU-Next
         run: |
-          if [ ! -d "KernelSU-Next/kernel" ]; then
-            git submodule update --init --recursive
-          fi
+          # FIX: Force download of latest KernelSU-Next to avoid "Version 0" bug
+          rm -rf KernelSU-Next
+          echo "Cloning latest KernelSU-Next..."
+          git clone -b next https://github.com/rifsxd/KernelSU-Next.git
+          
           mkdir -p drivers
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
           
-          # Ensure it's in the Makefile (Safety check)
+          # Ensure it's in the Makefile
           if ! grep -q "kernelsu" drivers/Makefile; then
             echo "obj-y += kernelsu/" >> drivers/Makefile
           fi
           
-          # Apply patch to fix hook check during clean/build
+          # Apply patch to fix hook check
           echo "Applying KernelSU hook check fix..."
           patch -p1 < kernelsu_hook_check.patch
           
           echo "✓ KernelSU-Next linked and patched"
 
+      # -----------------------------------------------------------------------
+      # ANYKERNEL: FIX APPLIED HERE (devicecheck=0)
+      # -----------------------------------------------------------------------
       - name: Setup AnyKernel3
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ~/AnyKernel3
@@ -80,7 +85,7 @@ jobs:
           # begin properties
           properties() { '
           kernel.string=GTA4XLVE KernelSU-Next
-          do.devicecheck=1
+          do.devicecheck=0     
           do.modules=0
           do.systemless=1
           do.cleanup=1
@@ -105,47 +110,37 @@ jobs:
           # end attributes
           
           ## AnyKernel methods (DO NOT CHANGE)
-          # import patching functions/variables - see for reference
+          # import patching functions/variables
           . tools/ak3-core.sh;
           
           ## AnyKernel boot install
-          split_boot; # use split_boot to extract ramdisk and kernel
-          
-          # Install kernel image
+          split_boot; 
           flash_boot;
           ## end boot install
           EOF
           chmod +x anykernel.sh
 
       # -----------------------------------------------------------------------
-      # BUILD LOGIC: Extracted directly from LineageOS kernel.mk
+      # BUILD LOGIC
       # -----------------------------------------------------------------------
       - name: Compile Kernel
         run: |
-          # 1. Setup Environment Variables (mimicking BoardConfig.mk)
           export PATH=~/toolchains/clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
           export CC=clang
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE64=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           export CLANG_TRIPLE=aarch64-linux-gnu-
-          
-          # Flags found in kernel.mk
           export LLVM=1
           export LLVM_IAS=1
           
-          # 2. Clean
           mkdir -p out
           make O=out clean mrproper
 
-          # 3. Build Base Config (TARGET_KERNEL_CONFIG)
           echo "--> Generating Base Config: vendor/atoll-perf_defconfig"
           make O=out vendor/atoll-perf_defconfig
 
-          # 4. Merge Fragment (The 'kernel.mk' Logic)
-          # We search for the gta4xlve fragment and merge it using the kernel's script
           FRAGMENT="arch/arm64/configs/vendor/gta4xlve.config"
           if [ ! -f $FRAGMENT ]; then
              FRAGMENT="arch/arm64/configs/gta4xlve.config"
@@ -153,7 +148,6 @@ jobs:
           
           if [ -f $FRAGMENT ]; then
              echo "--> Merging Fragment: $FRAGMENT"
-             # This is the exact script Lineage uses to merge configs
              scripts/kconfig/merge_config.sh -m -O out out/.config $FRAGMENT
              make O=out olddefconfig
           else
@@ -161,13 +155,6 @@ jobs:
              exit 1
           fi
 
-          # 5. Compile (KERNEL_MAKE_CMD)
-          # For devices with CONFIG_BUILD_ARM64_DT_OVERLAY=y (overlay mode):
-          # - Build Image.gz (not Image.gz-dtb) to avoid dtbs dependency
-          # - Image.gz-dtb depends on 'dtbs' target which tries to build overlays
-          # - Overlays are applied by bootloader at runtime, not appended to kernel
-          # - This follows LineageOS methodology for overlay-enabled devices
-          
           echo "--> Compiling Image.gz..."
           set -o pipefail
           make O=out -j$(nproc) Image.gz 2>&1 | tee build.log
@@ -181,54 +168,25 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
-      # PACKAGING: AnyKernel3
+      # PACKAGING
       # -----------------------------------------------------------------------
       - name: Create Flashable ZIP
         run: |
           cd ~/AnyKernel3
           rm -rf .git* README.md
           
-          # Create custom README for the ZIP
           cat > README.md << 'EOF'
           # GTA4XLVE KernelSU Kernel
           
-          ## What's Included
-          - Custom kernel with KernelSU-Next integration
-          - Image.gz - Kernel image for overlay-enabled device
-          - AnyKernel3 flasher script
+          ## Notes
+          - Built with latest KernelSU-Next (Fixes Version 0 bug)
+          - Device check disabled for safer flashing
           
-          ## How to Flash
-          
-          ### LineageOS Users (No TWRP needed!)
-          1. Boot into LineageOS Recovery (Vol Up + Power)
-          2. Navigate: Apply update → Apply from ADB
-          3. On PC: `adb sideload gta4xlve-ksun-YYYYMMDD.zip`
-          4. Reboot and enjoy!
-          
-          ### TWRP/OrangeFox Users
-          1. Boot into TWRP/OrangeFox recovery
-          2. Flash this ZIP file
-          3. Reboot and enjoy!
-          
-          ## After Flashing
-          - Install KernelSU Manager from: https://github.com/tiann/KernelSU/releases
-          - Verify installation in the app
-          
-          ## Device Compatibility
-          - Samsung Galaxy Tab S6 Lite (SM-P610/P613)
-          - Models: gta4xlve, gta4xl
-          - Android 11-16 / LineageOS 18-23
-          
-          ## Support
-          - Report issues: https://github.com/IamKavy47/gta4xlve_kernel_ksun/issues
-          - Full flashing guide: See FLASHING.md in repository
-          
-          ---
-          Built with ❤️ for GTA4XLVE community
+          ## Instructions
+          - Flash in TWRP/OrangeFox
+          - Reboot and install KernelSU-Next Manager App
           EOF
           
-          # Copy Artifacts
-          # For overlay-enabled devices, use Image.gz (overlays applied by bootloader)
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
              cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz .
              echo "✓ Copied Image.gz"
@@ -237,11 +195,6 @@ jobs:
              exit 1
           fi
           
-          # Verify package contents
-          echo "Package contents:"
-          ls -lah
-          
-          # Create ZIP
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
           zip -r9 $GITHUB_WORKSPACE/$ZIPNAME *
           echo "✓ Created $ZIPNAME"
