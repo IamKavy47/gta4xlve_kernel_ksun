@@ -56,30 +56,27 @@ jobs:
             git submodule update --init --recursive
           fi
           
-          # Ensure we're on the correct commit (legacy support for kernel 4.14)
-          # Note: Legacy branch was removed from KernelSU-Next on Jan 13, 2026
-          # We use commit d7de833a which has "scope minimized manual hooks 1.7"
+          # Use the actual legacy branch from KernelSU-Next GitHub
+          # This branch is specifically maintained for older kernels (4.4-5.4)
           cd KernelSU-Next
-          git fetch --unshallow 2>/dev/null || git fetch origin
+          git fetch origin legacy
+          git checkout legacy
+          git pull origin legacy
           
-          # Checkout the last commit with legacy/4.x kernel support
-          LEGACY_COMMIT="d7de833a"
-          echo "Checking out legacy commit: $LEGACY_COMMIT"
-          git checkout $LEGACY_COMMIT
-          
-          # Calculate KernelSU version upfront
+          # Calculate KernelSU version
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
           KSU_VERSION=$((30000 + KSU_GIT_VERSION + 60))
           KSU_GIT_TAG=$(git describe --tags --always)
           
           echo "=========================================="
-          echo "KernelSU-Next Legacy Support (kernel 4.14)"
+          echo "KernelSU-Next Legacy Branch (kernel 4.14)"
           echo "=========================================="
-          echo "Commit: $LEGACY_COMMIT"
+          echo "Branch: legacy (official from GitHub)"
+          echo "Commit: $(git rev-parse --short HEAD)"
           echo "Commit Count: $KSU_GIT_VERSION"
           echo "Calculated Version: $KSU_VERSION"
           echo "Git Describe: $KSU_GIT_TAG"
-          echo "Hook Check: ksu_handle_faccessat in fs/open.c"
+          echo "Hook Check: ksu_handle_sys_reboot in kernel/reboot.c"
           echo "=========================================="
           
           # Apply patch to Kbuild BEFORE creating symlink
