@@ -135,8 +135,20 @@ jobs:
           fi
 
           # 5. Compile (KERNEL_MAKE_CMD)
+          echo "--> Building device trees..."
+          make O=out -j$(nproc) dtbs || echo "DTB build completed with warnings"
+          
           echo "--> Compiling Image.gz-dtb..."
+          set -o pipefail
           make O=out -j$(nproc) Image.gz-dtb 2>&1 | tee build.log
+          BUILD_STATUS=$?
+          
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Build failed with status $BUILD_STATUS"
+            echo "Last 100 lines of build log:"
+            tail -100 build.log
+            exit $BUILD_STATUS
+          fi
 
       # -----------------------------------------------------------------------
       # PACKAGING: AnyKernel3
