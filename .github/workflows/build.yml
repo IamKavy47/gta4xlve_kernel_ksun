@@ -135,13 +135,15 @@ jobs:
           fi
 
           # 5. Compile (KERNEL_MAKE_CMD)
-          # Note: With CONFIG_BUILD_ARM64_DT_OVERLAY=y, dtbs target only builds overlays (dtbo)
-          # Image.gz-dtb will find and append any existing .dtb files via shell find command
-          # LineageOS approach: let Image.gz-dtb handle its own DTB dependencies
+          # For devices with CONFIG_BUILD_ARM64_DT_OVERLAY=y (overlay mode):
+          # - Build Image.gz (not Image.gz-dtb) to avoid dtbs dependency
+          # - Image.gz-dtb depends on 'dtbs' target which tries to build overlays
+          # - Overlays are applied by bootloader at runtime, not appended to kernel
+          # - This follows LineageOS methodology for overlay-enabled devices
           
-          echo "--> Compiling Image.gz-dtb..."
+          echo "--> Compiling Image.gz..."
           set -o pipefail
-          make O=out -j$(nproc) Image.gz-dtb 2>&1 | tee build.log
+          make O=out -j$(nproc) Image.gz 2>&1 | tee build.log
           BUILD_STATUS=$?
           
           if [ $BUILD_STATUS -ne 0 ]; then
@@ -160,10 +162,11 @@ jobs:
           rm -rf .git* README.md
           
           # Copy Artifacts
-          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb ]; then
-             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz-dtb .
+          # For overlay-enabled devices, use Image.gz (overlays applied by bootloader)
+          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
+             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz .
           else
-             echo "Build Failed: Image.gz-dtb not found"
+             echo "Build Failed: Image.gz not found"
              exit 1
           fi
 

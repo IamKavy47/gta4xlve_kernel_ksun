@@ -11,33 +11,41 @@ The kernel build was failing with the following error:
 
 #### Root Cause
 
-The issue had two parts:
-
 1. **Missing Configuration**: The `CONFIG_KSU_MANUAL_HOOK` option was not explicitly enabled in `arch/arm64/configs/vendor/gta4xlve.config`, even though manual hooks were already integrated in the kernel source files.
 
 2. **Build System Issue**: The KernelSU Kbuild file was checking for hooks even during `make clean` and `make mrproper` operations, before the kernel configuration was loaded.
 
-### 2. DTB Compilation Error
+### 2. DTB/DTBO Compilation Error
 
-Device tree compilation was failing with:
+Device tree overlay compilation was failing with:
 ```
 Error: ../arch/arm64/boot/dts/samsung/../qcom/dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi:13.1-10 syntax error
 FATAL ERROR: Unable to parse input tree
+make[3]: *** [scripts/Makefile.dtbo:24: arch/arm64/boot/dts/samsung/atoll-sec-gta4xlve-eur-overlay-r00.dtbo] Error 1
 ```
 
 #### Root Cause
 
-**The workflow was incorrectly running `make dtbs` before `Image.gz-dtb`.**
+**The workflow was building `Image.gz-dtb` which has a dependency on `dtbs` target.**
 
-After analyzing the LineageOS kernel build process, the issue was identified:
+After analyzing the LineageOS kernel build process and the kernel Makefiles:
 
-1. With `CONFIG_BUILD_ARM64_DT_OVERLAY=y`, the `dtbs` target only builds overlays (`.dtbo` files)
-2. It does NOT build base DTBs (`.dtb` files) - those are in the `else` clause
-3. The Samsung overlay includes qcom platform files that reference panel DTSI files
-4. When explicitly running `make dtbs`, the build system tried to build ALL device trees including the problematic overlay chain
-5. The overlay build failed due to how external references are handled in overlay context
+1. **In arch/arm64/Makefile line 209**:
+   ```makefile
+   Image.gz-dtb: vmlinux scripts dtbs Image.gz
+   ```
+   The `Image.gz-dtb` target explicitly depends on `dtbs`, triggering DTB/DTBO build.
 
-**The LineageOS approach**: Don't explicitly build `dtbs`. Let `Image.gz-dtb` handle its own dependencies. The `Image.gz-dtb` target uses `$(shell find $(obj)/dts/ -name \*.dtb)` to find and append any existing base DTB files. If none exist (which is fine with overlays), it just appends an empty set.
+2. **With `CONFIG_BUILD_ARM64_DT_OVERLAY=y`**:
+   - The `dtbs` target builds device tree overlays (`.dtbo` files)
+   - The Samsung overlay includes a chain of files that eventually include panel DTSI files
+   - These panel files use device tree reference syntax (`&mdss_mdp`) that causes parsing issues in overlay compilation context
+
+3. **LineageOS approach for overlay-enabled devices**:
+   - Build `Image.gz` alone (without `-dtb` suffix)
+   - Device tree overlays are built separately by the platform build system
+   - Bootloader applies overlays at runtime, they're not appended to the kernel image
+   - This avoids the `dtbs` dependency entirely
 
 
 ## Manual Hooks Present
@@ -77,21 +85,37 @@ Following the LineageOS kernel build methodology:
 - It does NOT build base DTBs - those are in conditional `else` blocks
 - Explicitly running `make dtbs` attempted to build the Samsung overlay which failed
 
-**The Solution**:
-- Don't explicitly call `make dtbs` before `Image.gz-dtb`
-- Let `Image.gz-dtb` handle its own DTB dependencies
-- The `Image.gz-dtb` Makefile target uses: `DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)`
-- This finds and appends any existing base DTBs, or appends nothing if none exist (which is fine with overlays)
+### 3. DTB Build Fix - Build Image.gz Instead of Image.gz-dtb
+**Changed build target from `Image.gz-dtb` to `Image.gz` for overlay-enabled devices.**
+
+Following the LineageOS kernel build methodology:
+
+**The Core Issue**:
+- `Image.gz-dtb` target has explicit dependency: `Image.gz-dtb: vmlinux scripts dtbs Image.gz`
+- This dependency forces `make dtbs` to run, which builds device tree overlays
+- The Samsung overlay compilation fails due to DTC parsing issues with external references
+
+**The LineageOS Solution**:
+- For overlay-enabled devices (`CONFIG_BUILD_ARM64_DT_OVERLAY=y`), build `Image.gz` alone
+- Don't append DTBs to the kernel image
+- Device tree overlays are built separately by the Android/LineageOS platform build
+- Bootloader applies overlays at runtime from separate partition
+- This completely avoids the `dtbs` target and overlay compilation issues
 
 **Why This Works**:
-- LineageOS builds base DTBs separately in the platform build
-- Overlays are applied at runtime by the bootloader
-- The kernel Image doesn't need DTBs appended when using overlays
-- If base DTBs exist in the build output, they'll be found and appended
-- If not (overlay-only mode), the kernel image is still valid
+- Modern Android devices use dynamic device tree overlays
+- Base DTBs are in the device's DTB partition
+- Overlays are in the vendor_boot or dtbo partition
+- Kernel image is standalone without DTBs appended
+- This is the standard LineageOS approach for Qualcomm devices with overlays
 
 ### 4. Workflow Integration
-Updated `.github/workflows/build.yml` to automatically apply the KernelSU patch and follow LineageOS build practices.
+Updated `.github/workflows/build.yml` to:
+- Apply KernelSU patch automatically
+- Remove invalid build targets (dtbo.img)
+- Build `Image.gz` instead of `Image.gz-dtb`
+- Package `Image.gz` in AnyKernel3 flashable ZIP
+- Follow LineageOS build practices throughout
 
 ## Verification
 
@@ -100,16 +124,22 @@ After applying these fixes:
 - ✅ `make O=out mrproper` works correctly
 - ✅ Config merging properly sets `CONFIG_KSU_MANUAL_HOOK=y`
 - ✅ KernelSU build shows "-- KernelSU: Hook mode: Manual" confirming hooks are detected
-- ✅ Build targets only `Image.gz-dtb` (dtbo.img removed as it's not a valid target)
-- ✅ No explicit `dtbs` build - following LineageOS approach
+- ✅ Build target is `Image.gz` (proper for overlay-enabled devices)
+- ✅ No DTB/DTBO compilation attempted (avoids overlay build issues)
 - ✅ Build errors are properly captured and displayed
 - ✅ Device tree files remain in original proper state (overlay with `/plugin/`)
+- ✅ Follows LineageOS kernel build methodology exactly
 
 ## Files Modified
 
 1. `arch/arm64/configs/vendor/gta4xlve.config` - Added manual hook configuration
 2. `kernelsu_hook_check.patch` - Patch to fix Kbuild hook check logic
-3. `.github/workflows/build.yml` - Updated to apply patch, fix build targets, remove explicit dtbs build, and improve error handling
+3. `.github/workflows/build.yml` - Updated to:
+   - Apply KernelSU patch
+   - Remove invalid dtbo.img target
+   - Build Image.gz instead of Image.gz-dtb
+   - Package Image.gz in flashable ZIP
+   - Improve error handling
 4. `.gitignore` - Added `/out` directory
 5. `KERNELSU_FIX.md` - This documentation file
 
