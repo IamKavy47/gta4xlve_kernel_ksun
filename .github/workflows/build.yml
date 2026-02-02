@@ -73,20 +73,47 @@ jobs:
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git ~/AnyKernel3
           cd ~/AnyKernel3
           cat > anykernel.sh << 'EOF'
-          properties() {
+          #!/sbin/sh
+          # AnyKernel3 Script for GTA4XLVE with KernelSU-Next
+          
+          ## AnyKernel setup
+          # begin properties
+          properties() { '
           kernel.string=GTA4XLVE KernelSU-Next
           do.devicecheck=1
           do.modules=0
           do.systemless=1
           do.cleanup=1
+          do.cleanuponabort=0
           device.name1=gta4xlve
           device.name2=gta4xl
           device.name3=SM-P613
           device.name4=SM-P610
-          }
+          supported.versions=11-14
+          supported.patchlevels=
+          '; } # end properties
+          
+          ## AnyKernel boot install
+          # begin attributes
+          block=/dev/block/bootdevice/by-name/boot;
+          is_slot_device=0;
+          ramdisk_compression=auto;
+          patch_vbmeta_flag=auto;
+          
+          # boot header version 2 for this device
           boot_img_hdr_ver=2
-          split_boot;
+          # end attributes
+          
+          ## AnyKernel methods (DO NOT CHANGE)
+          # import patching functions/variables - see for reference
+          . tools/ak3-core.sh;
+          
+          ## AnyKernel boot install
+          split_boot; # use split_boot to extract ramdisk and kernel
+          
+          # Install kernel image
           flash_boot;
+          ## end boot install
           EOF
           chmod +x anykernel.sh
 
@@ -161,17 +188,55 @@ jobs:
           cd ~/AnyKernel3
           rm -rf .git* README.md
           
+          # Create custom README for the ZIP
+          cat > README.md << 'EOF'
+          # GTA4XLVE KernelSU Kernel
+          
+          ## What's Included
+          - Custom kernel with KernelSU-Next integration
+          - Image.gz - Kernel image for overlay-enabled device
+          - AnyKernel3 flasher script
+          
+          ## How to Flash
+          1. Boot into TWRP/OrangeFox recovery
+          2. Flash this ZIP file
+          3. Reboot and enjoy!
+          
+          ## After Flashing
+          - Install KernelSU Manager from: https://github.com/tiann/KernelSU/releases
+          - Verify installation in the app
+          
+          ## Device Compatibility
+          - Samsung Galaxy Tab S6 Lite (SM-P610/P613)
+          - Models: gta4xlve, gta4xl
+          - Android 11-14
+          
+          ## Support
+          - Report issues: https://github.com/IamKavy47/gta4xlve_kernel_ksun/issues
+          - Full flashing guide: See FLASHING.md in repository
+          
+          ---
+          Built with ❤️ for GTA4XLVE community
+          EOF
+          
           # Copy Artifacts
           # For overlay-enabled devices, use Image.gz (overlays applied by bootloader)
           if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
              cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz .
+             echo "✓ Copied Image.gz"
           else
              echo "Build Failed: Image.gz not found"
              exit 1
           fi
-
+          
+          # Verify package contents
+          echo "Package contents:"
+          ls -lah
+          
+          # Create ZIP
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
           zip -r9 $GITHUB_WORKSPACE/$ZIPNAME *
+          echo "✓ Created $ZIPNAME"
           echo "ZIPNAME=$ZIPNAME" >> $GITHUB_ENV
 
       - name: Upload Flashable ZIP
