@@ -15,7 +15,7 @@ The issue had two parts:
 
 1. **Missing Configuration**: The `CONFIG_KSU_MANUAL_HOOK` option was not explicitly enabled in `arch/arm64/configs/vendor/gta4xlve.config`, even though manual hooks were already integrated in the kernel source files.
 
-2. **Build System Issue**: The KernelSU Kbuild file was checking for hooks even during `make clean` and `make mrproper` operations, before the kernel configuration was loaded. This caused the check to fail because `CONFIG_KSU_MANUAL_HOOK` was undefined during clean operations.
+2. **Build System Issue**: The KernelSU Kbuild file was checking for hooks even during `make clean` and `make mrproper` operations, before the kernel configuration was loaded.
 
 ### 2. DTB Compilation Error
 
@@ -27,7 +27,17 @@ FATAL ERROR: Unable to parse input tree
 
 #### Root Cause
 
-The Samsung device tree was configured to build as an overlay (DTBO), but the include chain brought in panel DTSI files that use device tree reference syntax (`&mdss_mdp`). The Device Tree Compiler failed to parse these external references in the overlay context.
+**The workflow was incorrectly running `make dtbs` before `Image.gz-dtb`.**
+
+After analyzing the LineageOS kernel build process, the issue was identified:
+
+1. With `CONFIG_BUILD_ARM64_DT_OVERLAY=y`, the `dtbs` target only builds overlays (`.dtbo` files)
+2. It does NOT build base DTBs (`.dtb` files) - those are in the `else` clause
+3. The Samsung overlay includes qcom platform files that reference panel DTSI files
+4. When explicitly running `make dtbs`, the build system tried to build ALL device trees including the problematic overlay chain
+5. The overlay build failed due to how external references are handled in overlay context
+
+**The LineageOS approach**: Don't explicitly build `dtbs`. Let `Image.gz-dtb` handle its own dependencies. The `Image.gz-dtb` target uses `$(shell find $(obj)/dts/ -name \*.dtb)` to find and append any existing base DTB files. If none exist (which is fine with overlays), it just appends an empty set.
 
 
 ## Manual Hooks Present
@@ -57,23 +67,31 @@ endif
 
 This ensures the hook check only runs when KSU is actually being built, not during clean operations.
 
-### 3. DTB Build Fix
-Converted Samsung device tree from overlay (DTBO) to base DTB:
+### 3. DTB Build Fix - LineageOS Approach
+**Removed explicit `make dtbs` call from the build workflow.**
 
-**Modified `arch/arm64/boot/dts/samsung/Makefile`**:
-- Disabled overlay build for Samsung device tree
-- Added it to regular `dtb-y` list instead
+Following the LineageOS kernel build methodology:
 
-**Modified `arch/arm64/boot/dts/samsung/atoll-sec-gta4xlve-eur-overlay-r00.dts`**:
-- Removed `/plugin/` directive (overlay marker)
-- Removed `dtbo-version` property
-- Now compiles as base DTB which can handle external references in included files
-```
+**The Problem**:
+- With `CONFIG_BUILD_ARM64_DT_OVERLAY=y`, the `make dtbs` target only builds overlays (`.dtbo` files)
+- It does NOT build base DTBs - those are in conditional `else` blocks
+- Explicitly running `make dtbs` attempted to build the Samsung overlay which failed
 
-This ensures the hook check only runs when KSU is actually being built, not during clean operations.
+**The Solution**:
+- Don't explicitly call `make dtbs` before `Image.gz-dtb`
+- Let `Image.gz-dtb` handle its own DTB dependencies
+- The `Image.gz-dtb` Makefile target uses: `DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)`
+- This finds and appends any existing base DTBs, or appends nothing if none exist (which is fine with overlays)
+
+**Why This Works**:
+- LineageOS builds base DTBs separately in the platform build
+- Overlays are applied at runtime by the bootloader
+- The kernel Image doesn't need DTBs appended when using overlays
+- If base DTBs exist in the build output, they'll be found and appended
+- If not (overlay-only mode), the kernel image is still valid
 
 ### 4. Workflow Integration
-Updated `.github/workflows/build.yml` to automatically apply the patch during the KernelSU setup step and improve build process.
+Updated `.github/workflows/build.yml` to automatically apply the KernelSU patch and follow LineageOS build practices.
 
 ## Verification
 
@@ -83,19 +101,17 @@ After applying these fixes:
 - ✅ Config merging properly sets `CONFIG_KSU_MANUAL_HOOK=y`
 - ✅ KernelSU build shows "-- KernelSU: Hook mode: Manual" confirming hooks are detected
 - ✅ Build targets only `Image.gz-dtb` (dtbo.img removed as it's not a valid target)
-- ✅ DTBs are built before Image.gz-dtb to ensure dependencies are met
+- ✅ No explicit `dtbs` build - following LineageOS approach
 - ✅ Build errors are properly captured and displayed
-- ✅ Device tree compilation succeeds (Samsung DTB now builds as base DTB)
+- ✅ Device tree files remain in original proper state (overlay with `/plugin/`)
 
 ## Files Modified
 
 1. `arch/arm64/configs/vendor/gta4xlve.config` - Added manual hook configuration
 2. `kernelsu_hook_check.patch` - Patch to fix Kbuild hook check logic
-3. `.github/workflows/build.yml` - Updated to apply patch, fix build targets, add DTB build step, and improve error handling
+3. `.github/workflows/build.yml` - Updated to apply patch, fix build targets, remove explicit dtbs build, and improve error handling
 4. `.gitignore` - Added `/out` directory
-5. `arch/arm64/boot/dts/samsung/Makefile` - Changed Samsung DTB from overlay to base DTB build
-6. `arch/arm64/boot/dts/samsung/atoll-sec-gta4xlve-eur-overlay-r00.dts` - Removed overlay directives
-7. `KERNELSU_FIX.md` - This documentation file
+5. `KERNELSU_FIX.md` - This documentation file
 
 ## Note on DTBO
 

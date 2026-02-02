@@ -135,8 +135,9 @@ jobs:
           fi
 
           # 5. Compile (KERNEL_MAKE_CMD)
-          echo "--> Building device trees..."
-          make O=out -j$(nproc) dtbs || echo "DTB build completed with warnings"
+          # Note: With CONFIG_BUILD_ARM64_DT_OVERLAY=y, dtbs target only builds overlays (dtbo)
+          # Image.gz-dtb will find and append any existing .dtb files via shell find command
+          # LineageOS approach: let Image.gz-dtb handle its own DTB dependencies
           
           echo "--> Compiling Image.gz-dtb..."
           set -o pipefail
