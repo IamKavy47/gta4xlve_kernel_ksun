@@ -1,19 +1,34 @@
-# KernelSU Build Fix
+# Kernel Build Fixes
 
-## Problem
+## Problems Fixed
+
+### 1. KernelSU Build Error
 
 The kernel build was failing with the following error:
 ```
 ../drivers/kernelsu/Kbuild:110: *** -- KernelSU: No hooks were defined, please integrate manual hooks in your kernel!.  Stop.
 ```
 
-## Root Cause
+#### Root Cause
 
 The issue had two parts:
 
 1. **Missing Configuration**: The `CONFIG_KSU_MANUAL_HOOK` option was not explicitly enabled in `arch/arm64/configs/vendor/gta4xlve.config`, even though manual hooks were already integrated in the kernel source files.
 
 2. **Build System Issue**: The KernelSU Kbuild file was checking for hooks even during `make clean` and `make mrproper` operations, before the kernel configuration was loaded. This caused the check to fail because `CONFIG_KSU_MANUAL_HOOK` was undefined during clean operations.
+
+### 2. DTB Compilation Error
+
+Device tree compilation was failing with:
+```
+Error: ../arch/arm64/boot/dts/samsung/../qcom/dsi-panel-rm69299-visionox-amoled-fhd-plus-video.dtsi:13.1-10 syntax error
+FATAL ERROR: Unable to parse input tree
+```
+
+#### Root Cause
+
+The Samsung device tree was configured to build as an overlay (DTBO), but the include chain brought in panel DTSI files that use device tree reference syntax (`&mdss_mdp`). The Device Tree Compiler failed to parse these external references in the overlay context.
+
 
 ## Manual Hooks Present
 
@@ -23,16 +38,16 @@ The kernel already has the following KernelSU manual hooks integrated:
 - `fs/read_write.c`: `ksu_handle_vfs_read`
 - `fs/stat.c`: `ksu_handle_stat`
 
-## Solution
+## Solutions
 
-### 1. Configuration Fix
+### 1. KernelSU Configuration Fix
 Added the following lines to `arch/arm64/configs/vendor/gta4xlve.config`:
 ```
 CONFIG_KSU_MANUAL_HOOK=y
 # CONFIG_KSU_KPROBES_HOOK is not set
 ```
 
-### 2. Build System Fix
+### 2. KernelSU Build System Fix
 Created a patch file `kernelsu_hook_check.patch` that wraps the hook check in the KernelSU Kbuild file with a condition:
 ```makefile
 ifeq ($(CONFIG_KSU), y)
@@ -42,8 +57,23 @@ endif
 
 This ensures the hook check only runs when KSU is actually being built, not during clean operations.
 
-### 3. Workflow Integration
-Updated `.github/workflows/build.yml` to automatically apply the patch during the KernelSU setup step.
+### 3. DTB Build Fix
+Converted Samsung device tree from overlay (DTBO) to base DTB:
+
+**Modified `arch/arm64/boot/dts/samsung/Makefile`**:
+- Disabled overlay build for Samsung device tree
+- Added it to regular `dtb-y` list instead
+
+**Modified `arch/arm64/boot/dts/samsung/atoll-sec-gta4xlve-eur-overlay-r00.dts`**:
+- Removed `/plugin/` directive (overlay marker)
+- Removed `dtbo-version` property
+- Now compiles as base DTB which can handle external references in included files
+```
+
+This ensures the hook check only runs when KSU is actually being built, not during clean operations.
+
+### 4. Workflow Integration
+Updated `.github/workflows/build.yml` to automatically apply the patch during the KernelSU setup step and improve build process.
 
 ## Verification
 
@@ -55,6 +85,7 @@ After applying these fixes:
 - ✅ Build targets only `Image.gz-dtb` (dtbo.img removed as it's not a valid target)
 - ✅ DTBs are built before Image.gz-dtb to ensure dependencies are met
 - ✅ Build errors are properly captured and displayed
+- ✅ Device tree compilation succeeds (Samsung DTB now builds as base DTB)
 
 ## Files Modified
 
@@ -62,7 +93,9 @@ After applying these fixes:
 2. `kernelsu_hook_check.patch` - Patch to fix Kbuild hook check logic
 3. `.github/workflows/build.yml` - Updated to apply patch, fix build targets, add DTB build step, and improve error handling
 4. `.gitignore` - Added `/out` directory
-5. `KERNELSU_FIX.md` - This documentation file
+5. `arch/arm64/boot/dts/samsung/Makefile` - Changed Samsung DTB from overlay to base DTB build
+6. `arch/arm64/boot/dts/samsung/atoll-sec-gta4xlve-eur-overlay-r00.dts` - Removed overlay directives
+7. `KERNELSU_FIX.md` - This documentation file
 
 ## Note on DTBO
 
