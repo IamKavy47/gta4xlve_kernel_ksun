@@ -27,7 +27,9 @@ Before flashing, ensure you have:
 - Android 12
 - Android 13
 - Android 14
-- LineageOS 18.x - 21.x
+- Android 15
+- Android 16 (including QPR2)
+- LineageOS 18.x - 23.x (latest: 23.2)
 
 ## 🔧 Flashing Instructions
 
@@ -161,7 +163,7 @@ If you need to go back to stock kernel:
 - **Manual Hooks**: Pre-integrated KernelSU hooks for better compatibility
 - **Optimizations**: Built with LLVM/Clang for better performance
 - **Overlay Support**: Device tree overlays for proper hardware support
-- **LineageOS Compatible**: Tested and working on LineageOS 18-21
+- **LineageOS Compatible**: Tested and working on LineageOS 18-23 (including 23.2)
 
 ## 🐛 Troubleshooting
 
@@ -174,7 +176,8 @@ If you need to go back to stock kernel:
 - **Check**: Ensure you installed the KernelSU Manager app
 - **Check**: Kernel version in Settings shows the custom kernel
 - **Try**: Reinstall the kernel ZIP
-- **LineageOS**: Make sure you're on a compatible LineageOS version (18-21)
+- **LineageOS**: Make sure you're on a compatible LineageOS version (18-23, including 23.2)
+- **Android 16**: Fully supported including QPR2
 
 ### Boot Loop
 - **Solution**: Boot into recovery, wipe cache and dalvik cache

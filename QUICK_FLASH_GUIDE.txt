@@ -25,7 +25,7 @@ GTA4XLVE KernelSU - Quick Flash Guide
 ✓ Unlocked bootloader
 ✓ LineageOS Recovery OR TWRP/OrangeFox
 ✓ Device: SM-P610 or SM-P613 (GTA4XLVE)
-✓ Android 11-14 / LineageOS 18-21
+✓ Android 11-16 (incl. QPR2) / LineageOS 18-23 (incl. 23.2)
 ✓ Backup your data!
 ✓ ADB tools (for LineageOS Recovery method)
 

@@ -89,7 +89,7 @@ jobs:
           device.name2=gta4xl
           device.name3=SM-P613
           device.name4=SM-P610
-          supported.versions=11-14
+          supported.versions=11-16
           supported.patchlevels=
           '; } # end properties
           
@@ -217,7 +217,7 @@ jobs:
           ## Device Compatibility
           - Samsung Galaxy Tab S6 Lite (SM-P610/P613)
           - Models: gta4xlve, gta4xl
-          - Android 11-14 / LineageOS 18-21
+          - Android 11-16 / LineageOS 18-23
           
           ## Support
           - Report issues: https://github.com/IamKavy47/gta4xlve_kernel_ksun/issues

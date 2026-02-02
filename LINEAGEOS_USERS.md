@@ -4,6 +4,10 @@
 
 You **DO NOT need TWRP** to flash this kernel! Use your built-in LineageOS Recovery.
 
+### ✨ Latest: LineageOS 23.2 / Android 16 QPR2 Supported!
+
+This kernel fully supports the latest LineageOS 23.2 based on Android 16 QPR2.
+
 ## 🚀 Quick Steps
 
 1. **Download** `gta4xlve-ksun-YYYYMMDD.zip` from GitHub Actions
@@ -24,7 +28,8 @@ LineageOS Recovery is **text-based** (no touch):
 
 ## ✅ What You Need
 
-- ✓ LineageOS installed (any version 18-21)
+- ✓ LineageOS installed (versions 18 through 23, including 23.2)
+- ✓ Android 11-16 support (including QPR2)
 - ✓ Unlocked bootloader
 - ✓ ADB tools on your computer
 - ✓ USB cable
