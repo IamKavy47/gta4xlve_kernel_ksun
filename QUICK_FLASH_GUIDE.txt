@@ -1,0 +1,40 @@
+===============================================
+GTA4XLVE KernelSU - Quick Flash Guide
+===============================================
+
+🚀 FASTEST WAY TO FLASH
+-----------------------
+1. Download: gta4xlve-ksun-YYYYMMDD.zip
+2. Boot to Recovery (Vol Up + Power)
+3. Install ZIP in TWRP/OrangeFox
+4. Reboot
+5. Install KernelSU Manager app
+
+📋 REQUIREMENTS
+--------------
+✓ Unlocked bootloader
+✓ TWRP/OrangeFox recovery
+✓ Device: SM-P610 or SM-P613 (GTA4XLVE)
+✓ Android 11-14
+✓ Backup your data!
+
+🔧 WHAT'S FIXED
+--------------
+✓ Proper AnyKernel3 script with shebang
+✓ Correct boot partition location
+✓ Device-specific boot header (v2)
+✓ Android 11-14 compatibility check
+
+📚 DETAILED GUIDE
+----------------
+See FLASHING.md for complete instructions
+
+⚠️ TROUBLESHOOTING
+------------------
+Bootloop? → Flash in recovery, wipe cache
+No root? → Install KernelSU Manager app
+Won't boot? → Restore stock boot.img
+
+💡 TIP: Keep stock boot.img as backup!
+
+===============================================
