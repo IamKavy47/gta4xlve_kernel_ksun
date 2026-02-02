@@ -36,7 +36,7 @@
 **Manager**: Download KernelSU-Next Manager from https://github.com/rifsxd/KernelSU-Next/releases
 
 **Expected Result**:
-- KernelSU version: **32939** (kernel) + 32857+ (ksud)
+- KernelSU version: **Varies based on v1.1.1 tag** (kernel) + ksud version (manager)
 - Root access working
 - Modules install successfully
 
@@ -66,11 +66,12 @@ Users reported these issues:
 
 #### Issue 2: Wrong KernelSU Version (Version 0)
 **Problem**: Kernel embedded version 0 instead of actual version
-**Cause**: Initially tried to use non-existent "legacy" branch
+**Cause**: Legacy branch was removed from upstream, needed stable release tag
 **Fix**:
-- Use official **legacy branch** from KernelSU-Next GitHub
-- Branch exists at: https://github.com/KernelSU-Next/KernelSU-Next/tree/legacy
-- Commit count: 2879 → Version: 32939
+- Use official **v1.1.1 tag** from KernelSU-Next GitHub
+- Tag at: https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
+- Stable release specifically for kernel 4.14 compatibility
+- Version properly detected from tag
 
 #### Issue 3: DTB Build Failures
 **Problem**: "No rule to make target 'dtbo.img'" and DTC syntax errors
@@ -192,7 +193,7 @@ After installation, open Manager:
 **Should show**:
 ```
 ✅ KernelSU-Next
-✅ Version: 32939 (kernel)
+✅ Version: [Version from v1.1.1 tag] (kernel)
 ✅ Manager: v1.1.1 or v3.0.x or v3.1.x
 ✅ Status: Working
 ✅ Root access: Available
@@ -216,7 +217,7 @@ After installation, open Manager:
 | 3.0.x | ✅ | v3 features | Modern UI |
 | 3.1.x | ✅ | Latest | Most features |
 
-**All versions work with kernel version 32939!**
+**All versions work with KernelSU-Next v1.1.1 tag!**
 
 ---
 
@@ -265,7 +266,7 @@ Error: Failed to install module script
 ```
 - Module size: 9.69 MB
 - Installing to /data/adb/modules_update/zygisksu
-- KernelSU version: 32939 (kernel) + 32857 (ksud)
+- KernelSU version: [proper version] (kernel) + [ksud version] (ksud)
 ✓ Installation successful
 ✓ Reboot to enable module
 ```
@@ -279,7 +280,7 @@ Error: Failed to install module script
 4. Some modules need configuration
 
 **Module fails to install**:
-1. Verify kernel version is 32939
+1. Verify kernel version is detected (not 0)
 2. Update Manager to latest
 3. Clear Manager cache
 4. Try different module version
@@ -298,14 +299,14 @@ Error: Failed to install module script
 
 **KernelSU Integration**:
 - Type: KernelSU-Next (not original KernelSU)
-- Branch: legacy (for kernel 4.14)
-- Version: 32939
-- Commit: 6f532c03 (from legacy branch)
+- Version: v1.1.1 tag (stable release for kernel 4.14)
+- URL: https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
 - Manual Hooks: 6 hooks integrated
+- Hook Check: ksu_handle_sys_reboot verified
 
 ### Manual Hooks Integrated
 
-KernelSU-Next legacy branch requires manual hooks for kernel 4.14 (kprobes support limited):
+KernelSU-Next v1.1.1 requires manual hooks for kernel 4.14 (kprobes support limited):
 
 1. **kernel/reboot.c**: `ksu_handle_sys_reboot`
    - Purpose: Intercept reboot syscall
@@ -342,8 +343,9 @@ CONFIG_KSU_MANUAL_HOOK=y
 
 **Version Calculation**:
 ```bash
-Commit Count: 2879 (from git rev-list --count HEAD)
-KSU Version: 30000 + 2879 + 60 = 32939
+# Version is calculated from v1.1.1 tag
+Commit Count: (from git rev-list --count HEAD at v1.1.1)
+KSU Version: 30000 + commit_count + 60
 ```
 
 **Hook Check** (from KernelSU-Next/kernel/Kbuild):
@@ -409,14 +411,14 @@ ramdisk_compression=auto
 - **Solution**: Reflash kernel, verify version in build logs
 
 **"Signature not found" (Manager 1.1.x)**:
-- **Cause**: Old kernel build with wrong KernelSU code
-- **Solution**: Flash latest build with version 32939
+- **Cause**: Incompatible KernelSU version or wrong build
+- **Solution**: Flash latest build using v1.1.1 tag
 
 ### Module Issues
 
 **"Version too old" when installing Zygisk-Next**:
-- **Cause**: Kernel version < 32900 or reported as 0
-- **Solution**: Reflash kernel, verify version is 32939
+- **Cause**: Kernel version reported as 0 or too low
+- **Solution**: Reflash kernel with v1.1.1 tag, verify version detected
 
 **Modules install but don't work**:
 - **Cause**: Various - check specific module requirements
@@ -492,13 +494,13 @@ ramdisk_compression=auto
 ✅ **Module Support**: Zygisk-Next and KernelSU modules  
 ✅ **Compatibility**: Android 11-16, LineageOS 18-23  
 ✅ **Stability**: Based on Samsung source with minimal changes  
-✅ **Up-to-date**: Latest KernelSU-Next legacy branch  
+✅ **Up-to-date**: KernelSU-Next v1.1.1 stable tag  
 
 ### Quick Reference
 
 ```
 Kernel Version: 4.14
-KernelSU Version: 32939
+KernelSU Version: From v1.1.1 tag
 Kernel Target: Image.gz
 Device: gta4xlve (Tab S6 Lite)
 Platform: Qualcomm Atoll
@@ -509,8 +511,8 @@ Modules: Zygisk-Next and compatible modules work
 
 ### Final Notes
 
-This kernel is specifically built for **kernel 4.14** using the **KernelSU-Next legacy branch**. The legacy branch is maintained separately for older kernels that don't support kprobes properly.
+This kernel is specifically built for **kernel 4.14** using **KernelSU-Next v1.1.1 tag**. This stable release is designed for older kernels that don't support kprobes properly.
 
-**Version 32939** is high enough for all current modules and manager versions. Everything should work out of the box!
+**Version v1.1.1** is a proven stable release that works well with all current modules and manager versions. Everything should work out of the box!
 
 Happy rooting! 🎉

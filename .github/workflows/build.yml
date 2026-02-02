@@ -51,32 +51,31 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Setup KernelSU-Next
         run: |
-          # For kernel 4.14, we MUST use the legacy branch
+          # For kernel 4.14, use v1.1.1 stable release tag
           if [ ! -d "KernelSU-Next/kernel" ]; then
             git submodule update --init --recursive
           fi
           
-          # Use the actual legacy branch from KernelSU-Next GitHub
-          # This branch is specifically maintained for older kernels (4.4-5.4)
+          # Use v1.1.1 tag - stable release for kernel 4.14
+          # https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
           cd KernelSU-Next
-          git fetch origin legacy
-          git checkout legacy
-          git pull origin legacy
+          git fetch --all --tags
+          git checkout tags/v1.1.1
           
-          # Calculate KernelSU version
+          # Calculate KernelSU version from v1.1.1 tag
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
           KSU_VERSION=$((30000 + KSU_GIT_VERSION + 60))
           KSU_GIT_TAG=$(git describe --tags --always)
           
           echo "=========================================="
-          echo "KernelSU-Next Legacy Branch (kernel 4.14)"
+          echo "KernelSU-Next v1.1.1 (kernel 4.14)"
           echo "=========================================="
-          echo "Branch: legacy (official from GitHub)"
+          echo "Tag: v1.1.1 (stable release)"
           echo "Commit: $(git rev-parse --short HEAD)"
           echo "Commit Count: $KSU_GIT_VERSION"
           echo "Calculated Version: $KSU_VERSION"
-          echo "Git Describe: $KSU_GIT_TAG"
-          echo "Hook Check: ksu_handle_sys_reboot in kernel/reboot.c"
+          echo "Git Tag: $KSU_GIT_TAG"
+          echo "Support: Kernel 4.4 - 5.4 (including 4.14)"
           echo "=========================================="
           
           # Apply patch to Kbuild BEFORE creating symlink
