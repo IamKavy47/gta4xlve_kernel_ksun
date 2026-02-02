@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       # -----------------------------------------------------------------------
-      # CACHING
+      # CACHING & TOOLS
       # -----------------------------------------------------------------------
       - name: Cache Proton Clang
         id: cache-clang
@@ -33,12 +33,8 @@ jobs:
         if: steps.cache-clang.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/toolchains
-          echo "Cloning Proton Clang..."
           git clone https://github.com/kdrag0n/proton-clang.git --depth=1 ~/toolchains/clang
 
-      # -----------------------------------------------------------------------
-      # DEPENDENCIES
-      # -----------------------------------------------------------------------
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
@@ -47,31 +43,7 @@ jobs:
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
 
       # -----------------------------------------------------------------------
-      # KERNELSU: FIX APPLIED HERE (Clones latest 'next' branch)
-      # -----------------------------------------------------------------------
-      - name: Setup KernelSU-Next
-        run: |
-          # FIX: Force download of latest KernelSU-Next to avoid "Version 0" bug
-          rm -rf KernelSU-Next
-          echo "Cloning latest KernelSU-Next..."
-          git clone -b next https://github.com/rifsxd/KernelSU-Next.git
-          
-          mkdir -p drivers
-          ln -sf ../KernelSU-Next/kernel drivers/kernelsu
-          
-          # Ensure it's in the Makefile
-          if ! grep -q "kernelsu" drivers/Makefile; then
-            echo "obj-y += kernelsu/" >> drivers/Makefile
-          fi
-          
-          # Apply patch to fix hook check
-          echo "Applying KernelSU hook check fix..."
-          patch -p1 < kernelsu_hook_check.patch
-          
-          echo "✓ KernelSU-Next linked and patched"
-
-      # -----------------------------------------------------------------------
-      # ANYKERNEL: FIX APPLIED HERE (devicecheck=0)
+      # SETUP ANYKERNEL3 (Device Check Disabled to fix Status 1 Error)
       # -----------------------------------------------------------------------
       - name: Setup AnyKernel3
         run: |
@@ -79,13 +51,11 @@ jobs:
           cd ~/AnyKernel3
           cat > anykernel.sh << 'EOF'
           #!/sbin/sh
-          # AnyKernel3 Script for GTA4XLVE with KernelSU-Next
+          # AnyKernel3 Script for GTA4XLVE
           
-          ## AnyKernel setup
-          # begin properties
           properties() { '
-          kernel.string=GTA4XLVE KernelSU-Next
-          do.devicecheck=0     
+          kernel.string=GTA4XLVE KernelSU-Next (Legacy)
+          do.devicecheck=0
           do.modules=0
           do.systemless=1
           do.cleanup=1
@@ -93,35 +63,24 @@ jobs:
           device.name1=gta4xlve
           device.name2=gta4xl
           device.name3=SM-P613
-          device.name4=SM-P610
           supported.versions=11-16
           supported.patchlevels=
-          '; } # end properties
+          '; }
           
-          ## AnyKernel boot install
-          # begin attributes
           block=/dev/block/bootdevice/by-name/boot;
           is_slot_device=0;
           ramdisk_compression=auto;
           patch_vbmeta_flag=auto;
-          
-          # boot header version 2 for this device
           boot_img_hdr_ver=2
-          # end attributes
           
-          ## AnyKernel methods (DO NOT CHANGE)
-          # import patching functions/variables
           . tools/ak3-core.sh;
-          
-          ## AnyKernel boot install
           split_boot; 
           flash_boot;
-          ## end boot install
           EOF
           chmod +x anykernel.sh
 
       # -----------------------------------------------------------------------
-      # BUILD LOGIC
+      # COMPILE KERNEL
       # -----------------------------------------------------------------------
       - name: Compile Kernel
         run: |
@@ -138,37 +97,24 @@ jobs:
           mkdir -p out
           make O=out clean mrproper
 
-          echo "--> Generating Base Config: vendor/atoll-perf_defconfig"
+          echo "--> Generating Base Config"
           make O=out vendor/atoll-perf_defconfig
 
           FRAGMENT="arch/arm64/configs/vendor/gta4xlve.config"
-          if [ ! -f $FRAGMENT ]; then
-             FRAGMENT="arch/arm64/configs/gta4xlve.config"
-          fi
+          [ ! -f $FRAGMENT ] && FRAGMENT="arch/arm64/configs/gta4xlve.config"
           
           if [ -f $FRAGMENT ]; then
-             echo "--> Merging Fragment: $FRAGMENT"
              scripts/kconfig/merge_config.sh -m -O out out/.config $FRAGMENT
              make O=out olddefconfig
           else
-             echo "!! ERROR: gta4xlve.config fragment not found!"
-             exit 1
+             echo "!! ERROR: Fragment not found!" && exit 1
           fi
 
           echo "--> Compiling Image.gz..."
-          set -o pipefail
-          make O=out -j$(nproc) Image.gz 2>&1 | tee build.log
-          BUILD_STATUS=$?
-          
-          if [ $BUILD_STATUS -ne 0 ]; then
-            echo "Build failed with status $BUILD_STATUS"
-            echo "Last 100 lines of build log:"
-            tail -100 build.log
-            exit $BUILD_STATUS
-          fi
+          make O=out -j$(nproc) Image.gz
 
       # -----------------------------------------------------------------------
-      # PACKAGING
+      # PACKAGE & UPLOAD
       # -----------------------------------------------------------------------
       - name: Create Flashable ZIP
         run: |
@@ -177,27 +123,15 @@ jobs:
           
           cat > README.md << 'EOF'
           # GTA4XLVE KernelSU Kernel
-          
-          ## Notes
-          - Built with latest KernelSU-Next (Fixes Version 0 bug)
-          - Device check disabled for safer flashing
-          
-          ## Instructions
-          - Flash in TWRP/OrangeFox
-          - Reboot and install KernelSU-Next Manager App
+          Build with manual KernelSU-Next Legacy
           EOF
           
-          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz ]; then
-             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz .
-             echo "✓ Copied Image.gz"
-          else
-             echo "Build Failed: Image.gz not found"
-             exit 1
-          fi
+          # Copy the Image.gz we just built
+          cp $GITHUB_WORKSPACE/out/arch/arm64/boot/Image.gz .
           
-          ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
+          # Zip correctly (files at root)
+          ZIPNAME="gta4xlve-ksun-legacy-$(date +%Y%m%d).zip"
           zip -r9 $GITHUB_WORKSPACE/$ZIPNAME *
-          echo "✓ Created $ZIPNAME"
           echo "ZIPNAME=$ZIPNAME" >> $GITHUB_ENV
 
       - name: Upload Flashable ZIP
@@ -205,10 +139,3 @@ jobs:
         with:
           name: kernelsu-flashable-zip
           path: ${{ env.ZIPNAME }}
-
-      - name: Upload Build Log (Debug)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
