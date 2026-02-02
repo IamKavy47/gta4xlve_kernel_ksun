@@ -301,6 +301,8 @@ Error: Failed to install module script
 - Type: KernelSU-Next (not original KernelSU)
 - Version: v1.1.1 tag (stable release for kernel 4.14)
 - URL: https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
+- Setup: Official setup script from KernelSU-Next
+- Command: `curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s v1.1.1`
 - Manual Hooks: 6 hooks integrated
 - Hook Check: ksu_handle_sys_reboot verified
 

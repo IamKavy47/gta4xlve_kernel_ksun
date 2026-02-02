@@ -47,63 +47,50 @@ jobs:
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu device-tree-compiler
 
       # -----------------------------------------------------------------------
-      # KERNELSU: The "Trick" - Linking it before build
+      # KERNELSU: Using Official Setup Script
       # -----------------------------------------------------------------------
       - name: Setup KernelSU-Next
         run: |
-          # For kernel 4.14, use v1.1.1 stable release tag
-          if [ ! -d "KernelSU-Next/kernel" ]; then
-            git submodule update --init --recursive
-          fi
-          
-          # Use v1.1.1 tag - stable release for kernel 4.14
-          # https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
-          cd KernelSU-Next
-          git fetch --all --tags
-          git checkout tags/v1.1.1
-          
-          # Calculate KernelSU version from v1.1.1 tag
-          KSU_GIT_VERSION=$(git rev-list --count HEAD)
-          KSU_VERSION=$((30000 + KSU_GIT_VERSION + 60))
-          KSU_GIT_TAG=$(git describe --tags --always)
-          
+          # Use official KernelSU-Next setup script for v1.1.1
+          # This is the recommended way per KernelSU-Next documentation
           echo "=========================================="
-          echo "KernelSU-Next v1.1.1 (kernel 4.14)"
-          echo "=========================================="
-          echo "Tag: v1.1.1 (stable release)"
-          echo "Commit: $(git rev-parse --short HEAD)"
-          echo "Commit Count: $KSU_GIT_VERSION"
-          echo "Calculated Version: $KSU_VERSION"
-          echo "Git Tag: $KSU_GIT_TAG"
-          echo "Support: Kernel 4.4 - 5.4 (including 4.14)"
+          echo "KernelSU-Next v1.1.1 Setup (Official Script)"
           echo "=========================================="
           
-          # Apply patch to Kbuild BEFORE creating symlink
-          # This modifies the actual file in KernelSU-Next/kernel/
-          echo "Applying KernelSU hook check fix to Kbuild..."
-          cd ..
-          patch -p1 < kernelsu_hook_check.patch
+          # Download and run official setup script with v1.1.1 tag
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s v1.1.1
           
-          # Export for later use
-          echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
-          echo "KSU_TAG=$KSU_GIT_TAG" >> $GITHUB_ENV
+          # The script automatically:
+          # - Downloads KernelSU-Next v1.1.1
+          # - Sets up kernel directory structure
+          # - Creates proper symlinks
+          # - Calculates version
+          # - Configures build system
           
-          mkdir -p drivers
-          ln -sf ../KernelSU-Next/kernel drivers/kernelsu
-          
-          # Create a .git symlink to help Kbuild find the git repository
-          # This allows the version detection in Kbuild to work properly
-          if [ ! -e drivers/kernelsu/../.git ]; then
-            ln -sf ../../KernelSU-Next/.git drivers/.git
+          # Calculate and display version for reference
+          if [ -d "KernelSU" ]; then
+            cd KernelSU
+            KSU_GIT_VERSION=$(git rev-list --count HEAD)
+            KSU_VERSION=$((30000 + KSU_GIT_VERSION + 60))
+            KSU_GIT_TAG=$(git describe --tags --always)
+            
+            echo "Tag: v1.1.1 (stable release)"
+            echo "Commit: $(git rev-parse --short HEAD)"
+            echo "Commit Count: $KSU_GIT_VERSION"
+            echo "Calculated Version: $KSU_VERSION"
+            echo "Git Tag: $KSU_GIT_TAG"
+            echo "Support: Kernel 4.4 - 5.4 (including 4.14)"
+            
+            # Export for later use
+            echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
+            echo "KSU_TAG=$KSU_GIT_TAG" >> $GITHUB_ENV
+            
+            cd ..
           fi
           
-          # Ensure it's in the Makefile (Safety check)
-          if ! grep -q "kernelsu" drivers/Makefile; then
-            echo "obj-y += kernelsu/" >> drivers/Makefile
-          fi
-          
-          echo "✓ KernelSU-Next (legacy branch) linked and patched"
-          echo "✓ Version: $KSU_VERSION ($KSU_GIT_TAG)"
+          echo "=========================================="
+          echo "✓ KernelSU-Next v1.1.1 setup complete (official script)"
+          echo "=========================================="
 
       - name: Setup AnyKernel3
         run: |
