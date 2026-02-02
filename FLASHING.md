@@ -134,10 +134,24 @@ After booting, verify KernelSU is installed:
    - Go to **Settings** → **About tablet** → **Software information**
    - Look for "Kernel version" - should show custom kernel info
 
-2. **KernelSU Manager**
-   - Install KernelSU Manager app from GitHub: https://github.com/tiann/KernelSU/releases
-   - Open the app to verify KernelSU is working
-   - You should see the kernel version and root access status
+2. **Install KernelSU-Next Manager**
+   
+   **IMPORTANT**: You need **KernelSU-Next Manager**, not original KernelSU Manager!
+   
+   - **Download from**: https://github.com/rifsxd/KernelSU-Next/releases
+   - **Get the latest APK** (any v1.x.x version works)
+   - Install the APK on your device
+   
+   **Why KernelSU-Next Manager?**
+   - This kernel uses KernelSU-Next (legacy branch)
+   - Original KernelSU Manager from tiann is **NOT compatible**
+   - See **MANAGER_VERSION.md** for full details
+
+3. **Verify in Manager App**
+   - Open KernelSU-Next Manager
+   - Should show kernel version: **32956** (or higher)
+   - Root status should be **Granted**
+   - If it shows version 0 or "unsupported", reflash the kernel
 
 ## 🔄 Reverting to Stock Kernel
 

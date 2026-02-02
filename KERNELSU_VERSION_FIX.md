@@ -99,8 +99,26 @@ KernelSU version: 32956 (kernel) + 32857 (ksud)
 ✓ Module installed successfully
 ```
 
+## Which Manager App to Install?
+
+**IMPORTANT**: You need **KernelSU-Next Manager**, NOT the original KernelSU Manager!
+
+### Quick Answer
+- **Download**: https://github.com/rifsxd/KernelSU-Next/releases
+- **Get**: Latest APK (any v1.x.x version works with legacy branch)
+- **Don't use**: Original KernelSU Manager from tiann (incompatible)
+
+### Full Details
+See **MANAGER_VERSION.md** for:
+- Detailed installation instructions
+- Version compatibility info
+- Troubleshooting manager issues
+- Module compatibility
+
 ## References
 
 - KernelSU-Next legacy branch: https://github.com/KernelSU-Next/KernelSU-Next/tree/legacy
+- KernelSU-Next Manager: https://github.com/rifsxd/KernelSU-Next/releases
 - Kernel 4.14 compatibility: Requires legacy branch with scope minimized hooks
 - Manual hooks 1.7: Included in legacy branch for older kernel compatibility
+- Manager guide: See MANAGER_VERSION.md
