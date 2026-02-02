@@ -135,8 +135,8 @@ jobs:
           fi
 
           # 5. Compile (KERNEL_MAKE_CMD)
-          echo "--> Compiling Image.gz-dtb and dtbo..."
-          make O=out -j$(nproc) Image.gz-dtb dtbo.img 2>&1 | tee build.log
+          echo "--> Compiling Image.gz-dtb..."
+          make O=out -j$(nproc) Image.gz-dtb 2>&1 | tee build.log
 
       # -----------------------------------------------------------------------
       # PACKAGING: AnyKernel3
@@ -152,10 +152,6 @@ jobs:
           else
              echo "Build Failed: Image.gz-dtb not found"
              exit 1
-          fi
-
-          if [ -f $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img ]; then
-             cp $GITHUB_WORKSPACE/out/arch/arm64/boot/dtbo.img .
           fi
 
           ZIPNAME="gta4xlve-ksun-$(date +%Y%m%d).zip"
