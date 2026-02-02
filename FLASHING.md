@@ -7,7 +7,10 @@ This guide will help you flash the custom KernelSU kernel on your Samsung Galaxy
 Before flashing, ensure you have:
 
 1. **Unlocked Bootloader** - Your device must have an unlocked bootloader
-2. **Custom Recovery** - TWRP or OrangeFox recovery installed
+2. **Recovery or Fastboot Access** - One of the following:
+   - LineageOS Recovery (built-in with LineageOS)
+   - TWRP or OrangeFox recovery
+   - Fastboot/ADB tools on your computer
 3. **Backup** - Complete backup of your data (flashing can cause data loss)
 4. **Charged Battery** - At least 50% battery charge
 5. **Downloaded Kernel ZIP** - The `gta4xlve-ksun-YYYYMMDD.zip` file from GitHub Actions
@@ -24,10 +27,52 @@ Before flashing, ensure you have:
 - Android 12
 - Android 13
 - Android 14
+- LineageOS 18.x - 21.x
 
 ## 🔧 Flashing Instructions
 
-### Method 1: Using TWRP/OrangeFox Recovery (Recommended)
+### Method 1: Using LineageOS Recovery (For LineageOS Users) ⭐ RECOMMENDED FOR LINEAGEOS
+
+This method works with the built-in LineageOS Recovery - no need for TWRP!
+
+1. **Download the Kernel ZIP**
+   - Download the latest `gta4xlve-ksun-YYYYMMDD.zip` from GitHub Actions artifacts
+   - Transfer it to your computer
+
+2. **Boot into LineageOS Recovery**
+   - Turn off your device
+   - Press and hold `Volume Up + Power` buttons simultaneously
+   - When you see the LineageOS Recovery screen, release the buttons
+   - You'll see the LineageOS Recovery menu (text-based, no touch)
+
+3. **Navigate to Apply Update**
+   - Use **Volume buttons** to navigate (Up/Down)
+   - Use **Power button** to select
+   - Navigate to **"Apply update"** and press Power
+   - Select **"Apply from ADB"**
+
+4. **Flash via ADB Sideload**
+   On your computer, run:
+   ```bash
+   adb sideload gta4xlve-ksun-YYYYMMDD.zip
+   ```
+   
+   Wait for the process to complete. You'll see progress on both device and computer.
+
+5. **Reboot**
+   - Navigate back to main menu
+   - Select **"Reboot system now"**
+   - Your device will boot with the new kernel
+
+**Navigation Tips for LineageOS Recovery**:
+- Volume Up = Move up in menu
+- Volume Down = Move down in menu
+- Power Button = Select/Confirm
+- No touch screen - use buttons only!
+
+### Method 2: Using TWRP/OrangeFox Recovery
+
+This method is for users who have custom recovery installed.
 
 1. **Download the Kernel ZIP**
    - Download the latest `gta4xlve-ksun-YYYYMMDD.zip` from GitHub Actions artifacts
@@ -50,20 +95,34 @@ Before flashing, ensure you have:
    - Tap **Reboot System**
    - Your device will boot with the new kernel
 
-### Method 2: Using ADB Sideload
+### Method 3: Using Fastboot (Advanced)
 
-1. **Enable ADB Sideload in Recovery**
-   - Boot into TWRP/OrangeFox recovery
-   - Tap **Advanced** → **ADB Sideload**
-   - Swipe to start sideload
+For advanced users who want to flash without recovery or have boot issues.
 
-2. **Flash via ADB**
+**Requirements**:
+- Fastboot tools installed on your computer
+- USB debugging enabled (if device boots)
+- Unlocked bootloader
+
+**Steps**:
+1. Extract `Image.gz` from the kernel ZIP file
+2. Boot device into fastboot mode:
    ```bash
-   adb sideload gta4xlve-ksun-YYYYMMDD.zip
+   adb reboot bootloader
+   ```
+   Or use button combination: `Volume Down + Power`
+
+3. Flash the kernel:
+   ```bash
+   fastboot flash boot Image.gz
    ```
 
-3. **Reboot**
-   - After flashing completes, tap **Reboot System**
+4. Reboot:
+   ```bash
+   fastboot reboot
+   ```
+
+**Note**: This method flashes only the kernel image without using the AnyKernel3 installer. Use only if you know what you're doing.
 
 ## ✅ Verifying Installation
 
@@ -82,6 +141,17 @@ After booting, verify KernelSU is installed:
 
 If you need to go back to stock kernel:
 
+### For LineageOS Users:
+1. **Dirty Flash LineageOS**:
+   - Download your current LineageOS version
+   - Flash it in recovery (this will restore stock kernel)
+   - No data loss - it's a "dirty flash"
+
+2. **Or reflash boot.img**:
+   - Extract boot.img from LineageOS ZIP
+   - Flash via fastboot: `fastboot flash boot boot.img`
+
+### For Other ROMs:
 1. Flash your device's stock firmware via Odin (Windows) or Heimdall (Linux/Mac)
 2. Or restore a backup of your boot partition from TWRP
 
@@ -91,25 +161,40 @@ If you need to go back to stock kernel:
 - **Manual Hooks**: Pre-integrated KernelSU hooks for better compatibility
 - **Optimizations**: Built with LLVM/Clang for better performance
 - **Overlay Support**: Device tree overlays for proper hardware support
+- **LineageOS Compatible**: Tested and working on LineageOS 18-21
 
 ## 🐛 Troubleshooting
 
 ### Device Stuck at Boot Logo
 - **Solution**: Boot into recovery and flash stock boot.img or restore backup
+- For LineageOS: Dirty flash your LineageOS ROM
 - This usually means kernel incompatibility with your ROM
 
 ### KernelSU Not Working
 - **Check**: Ensure you installed the KernelSU Manager app
 - **Check**: Kernel version in Settings shows the custom kernel
 - **Try**: Reinstall the kernel ZIP
+- **LineageOS**: Make sure you're on a compatible LineageOS version (18-21)
 
 ### Boot Loop
 - **Solution**: Boot into recovery, wipe cache and dalvik cache
-- **If persists**: Flash stock firmware
+- **If persists**: Flash stock firmware or LineageOS ROM again
 
 ### Module Installation Fails
 - **Check**: Ensure you're using modules compatible with KernelSU
 - **Note**: Magisk modules are NOT compatible with KernelSU
+
+### ADB Sideload Not Working
+- **LineageOS Recovery**: Make sure USB debugging was enabled before booting to recovery
+- **Computer**: Install latest ADB platform tools
+- **Cable**: Try a different USB cable (some cables are charge-only)
+- **Port**: Try different USB port on your computer
+- **Driver**: Install Samsung USB drivers (Windows) or set up udev rules (Linux)
+
+### LineageOS Recovery Doesn't Show "Apply from ADB"
+- Make sure you're in the correct menu
+- Select "Apply update" first, then "Apply from ADB"
+- If missing, your recovery might be too old - update LineageOS
 
 ## 📚 Additional Resources
 

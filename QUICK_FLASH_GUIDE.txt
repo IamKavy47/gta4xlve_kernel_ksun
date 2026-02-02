@@ -4,6 +4,16 @@ GTA4XLVE KernelSU - Quick Flash Guide
 
 🚀 FASTEST WAY TO FLASH
 -----------------------
+
+**For LineageOS Users (No TWRP needed!):**
+1. Download: gta4xlve-ksun-YYYYMMDD.zip
+2. Boot to LineageOS Recovery (Vol Up + Power)
+3. Navigate with Volume buttons, select with Power
+4. Go to: Apply update → Apply from ADB
+5. Run on PC: adb sideload gta4xlve-ksun-YYYYMMDD.zip
+6. Reboot and install KernelSU Manager app
+
+**For TWRP/OrangeFox Users:**
 1. Download: gta4xlve-ksun-YYYYMMDD.zip
 2. Boot to Recovery (Vol Up + Power)
 3. Install ZIP in TWRP/OrangeFox
@@ -13,10 +23,11 @@ GTA4XLVE KernelSU - Quick Flash Guide
 📋 REQUIREMENTS
 --------------
 ✓ Unlocked bootloader
-✓ TWRP/OrangeFox recovery
+✓ LineageOS Recovery OR TWRP/OrangeFox
 ✓ Device: SM-P610 or SM-P613 (GTA4XLVE)
-✓ Android 11-14
+✓ Android 11-14 / LineageOS 18-21
 ✓ Backup your data!
+✓ ADB tools (for LineageOS Recovery method)
 
 🔧 WHAT'S FIXED
 --------------
@@ -24,6 +35,7 @@ GTA4XLVE KernelSU - Quick Flash Guide
 ✓ Correct boot partition location
 ✓ Device-specific boot header (v2)
 ✓ Android 11-14 compatibility check
+✓ LineageOS Recovery support
 
 📚 DETAILED GUIDE
 ----------------
@@ -33,8 +45,14 @@ See FLASHING.md for complete instructions
 ------------------
 Bootloop? → Flash in recovery, wipe cache
 No root? → Install KernelSU Manager app
-Won't boot? → Restore stock boot.img
+Won't boot? → Dirty flash your LineageOS ROM
+LineageOS: No need for TWRP - use built-in recovery!
 
-💡 TIP: Keep stock boot.img as backup!
+💡 TIPS
+-------
+• LineageOS users: Use built-in recovery with ADB sideload
+• TWRP optional - LineageOS Recovery works great!
+• Keep your ROM ZIP as backup
+• KernelSU ≠ Magisk (different modules!)
 
 ===============================================

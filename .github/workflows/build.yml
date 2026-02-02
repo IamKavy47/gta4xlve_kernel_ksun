@@ -198,6 +198,14 @@ jobs:
           - AnyKernel3 flasher script
           
           ## How to Flash
+          
+          ### LineageOS Users (No TWRP needed!)
+          1. Boot into LineageOS Recovery (Vol Up + Power)
+          2. Navigate: Apply update → Apply from ADB
+          3. On PC: `adb sideload gta4xlve-ksun-YYYYMMDD.zip`
+          4. Reboot and enjoy!
+          
+          ### TWRP/OrangeFox Users
           1. Boot into TWRP/OrangeFox recovery
           2. Flash this ZIP file
           3. Reboot and enjoy!
@@ -209,7 +217,7 @@ jobs:
           ## Device Compatibility
           - Samsung Galaxy Tab S6 Lite (SM-P610/P613)
           - Models: gta4xlve, gta4xl
-          - Android 11-14
+          - Android 11-14 / LineageOS 18-21
           
           ## Support
           - Report issues: https://github.com/IamKavy47/gta4xlve_kernel_ksun/issues
