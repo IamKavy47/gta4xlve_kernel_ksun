@@ -16,9 +16,16 @@ endef
 # SM7125 BASE DTB
 SEC_ATOLL_BASE_DTB := ../qcom/atoll-ab-idp.dtb
 
-$(eval $(call sec_dtbo_build, \
-		$(SEC_GTA4XLVE_EUR_DTBO),$(CONFIG_SEC_GTA4XLVE_EUR_OPEN),$(SEC_ATOLL_BASE_DTB)))
+# Disable DTBO build for Samsung as it causes DTC parsing errors with overlays
+# Build as regular DTB instead
+# $(eval $(call sec_dtbo_build, \
+# 		$(SEC_GTA4XLVE_EUR_DTBO),$(CONFIG_SEC_GTA4XLVE_EUR_OPEN),$(SEC_ATOLL_BASE_DTB)))
 
+endif
+
+# Build Samsung DTB as regular DTB to avoid overlay compilation issues
+ifeq ($(CONFIG_SEC_GTA4XLVE_EUR_OPEN),y)
+dtb-y += atoll-sec-gta4xlve-eur-overlay-r00.dtb
 endif
 
 ifeq ($(CONFIG_ARM64),y)
