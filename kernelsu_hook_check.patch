@@ -1,0 +1,19 @@
+--- a/drivers/kernelsu/Kbuild
++++ b/drivers/kernelsu/Kbuild
+@@ -89,6 +89,8 @@ $(info -- KernelSU-Next Manager signature hash: $(KSU_NEXT_MANAGER_HASH))
+ 
+ # RKSU: checks for available hook
+ ## Logic flipped for HAVE_KSU_HOOK: 0 is success, 1 is failure
++# Only check hooks when KSU is actually being built
++ifeq ($(CONFIG_KSU), y)
+ HAVE_KSU_HOOK ?= 1
+ 
+ # Checks hooks state
+@@ -109,6 +111,7 @@ endif
+ ifneq ($(HAVE_KSU_HOOK),0)
+ $(error -- KernelSU: No hooks were defined, please integrate manual hooks in your kernel!)
+ endif
++endif
+ 
+ # some backports
+ ifneq ($(shell grep -Eq "^static int can_umount" $(srctree)/fs/namespace.c; echo $$?),0)

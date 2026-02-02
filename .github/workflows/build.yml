@@ -61,7 +61,12 @@ jobs:
           if ! grep -q "kernelsu" drivers/Makefile; then
             echo "obj-y += kernelsu/" >> drivers/Makefile
           fi
-          echo "✓ KernelSU-Next linked"
+          
+          # Apply patch to fix hook check during clean/build
+          echo "Applying KernelSU hook check fix..."
+          patch -p1 < kernelsu_hook_check.patch
+          
+          echo "✓ KernelSU-Next linked and patched"
 
       - name: Setup AnyKernel3
         run: |
