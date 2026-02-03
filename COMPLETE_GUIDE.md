@@ -6,7 +6,6 @@
 3. [KernelSU Manager](#kernelsu-manager)
 4. [Module Installation](#module-installation)
 5. [Technical Details](#technical-details)
-6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -385,10 +384,9 @@ ramdisk_compression=auto
 
 ### Credits
 
-- KernelSU-Next team (rifsxd and contributors)
-- LineageOS team
-- Samsung kernel source
-- Community testers
+- [@](https://github.com/DaViDev985)
+- [@](https://github.com/danielml3)
+- [@](https://github.com/iamkavy47)
 
 ---
 
@@ -398,26 +396,14 @@ ramdisk_compression=auto
 
 ✅ **Root Access**: Via KernelSU-Next framework  
 ✅ **Module Support**: Zygisk-Next and KernelSU modules  
-✅ **Compatibility**: Android 11-16, LineageOS 18-23  
+✅ **Compatibility**: Android 16, LineageOS 23  
 ✅ **Stability**: Based on Samsung source with minimal changes  
 ✅ **Up-to-date**: KernelSU-Next v1.1.1 stable tag  
 
-### Quick Reference
-
-```
-Kernel Version: 4.14
-KernelSU Version: From v1.1.1 tag
-Kernel Target: Image.gz
-Device: gta4xlve (Tab S6 Lite)
-Platform: Qualcomm Atoll
-Flash Method: LineageOS Recovery or TWRP
-Manager: KernelSU-Next Manager v1.1.1 or v3.1.x
-Modules: Zygisk-Next and compatible modules work
-```
 
 ### Final Notes
 
-This kernel is specifically built for **kernel 4.14** using **KernelSU-Next v1.1.1 tag**. This stable release is designed for older kernels that don't support kprobes properly.
+This kernel is specifically built for **kernel 4.14**(lineageos23.2 - gta4xlveu) using **KernelSU-Next v1.1.1 tag**. This stable release is designed for older kernels that don't support kprobes properly.
 
 **Version v1.1.1** is a proven stable release that works well with all current modules and manager versions. Everything should work out of the box!
 
