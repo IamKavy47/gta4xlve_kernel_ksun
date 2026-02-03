@@ -46,7 +46,7 @@
 ### Prerequisites
 
 - ✅ Samsung Galaxy Tab S6 Lite (gta4xlve)
-- ✅ LineageOS 18-23 or Android 11-16
+- ✅ LineageOS 23
 - ✅ Unlocked bootloader
 - ✅ LineageOS Recovery or TWRP installed
 - ✅ ADB/Fastboot installed on PC
