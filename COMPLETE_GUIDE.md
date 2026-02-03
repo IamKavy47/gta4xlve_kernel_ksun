@@ -138,13 +138,13 @@ After installation, open Manager:
 ### Support
 
 **Issues**: Open an issue on this repository
-**Telegram**:[@](https://t.me/iamkavy47)
+**Telegram**:[@](https://t.me/iamkavy47)iamkavy47
 
 ### Credits
 
-- [@](https://github.com/DaViDev985)
-- [@](https://github.com/danielml3)
-- [@](https://github.com/iamkavy47)
+- [@](https://github.com/DaViDev985)DaViDev985
+- [@](https://github.com/danielml3)Danielml3
+- [@](https://github.com/iamkavy47)Iamkavy47
 
 ---
 
