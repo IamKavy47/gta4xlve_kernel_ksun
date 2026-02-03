@@ -4,7 +4,6 @@
 1. [Flashing Instructions](#flashing-instructions)
 2. [KernelSU Manager](#kernelsu-manager)
 3. [Module Installation](#module-installation)
-4. [Technical Details](#technical-details)
 
 ---
 
@@ -38,7 +37,7 @@
    ```bash
    adb sideload gta4xlve-ksun-YYYYMMDD.zip
    ```
-   Tap yes if it sasys verification failed u wanna continue
+   Tap yes if it says verification failed u wanna continue
 
 4. **Reboot**:
    - Select "Reboot system now"
