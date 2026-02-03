@@ -85,8 +85,9 @@
 1. Boot to TWRP (Power + Volume Up)
 2. Tap "Install"
 3. Navigate to and select `gta4xlve-ksun-YYYYMMDD.zip`
-4. Swipe to flash
-5. Reboot system
+4. flash
+5. tap yes if it sasys verification failed u wanna continue
+6. Reboot system
 
 ### Method 3: Fastboot (Advanced)
 
