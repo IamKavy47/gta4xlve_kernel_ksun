@@ -132,7 +132,7 @@ After installation, open Manager:
 - **Legacy Branch**: https://github.com/KernelSU-Next/KernelSU-Next/tree/legacy
 - **Manager Releases**: https://github.com/rifsxd/KernelSU-Next/releases
 - **Device Tree**: https://github.com/gta4xlve-dev/android_device_samsung_gta4xlveu
-- **Kernel Sourcehttps://github.com/gta4xlve-dev/android_kernel_samsung_gta4xlve** : 
+- **Kernel Source : https://github.com/gta4xlve-dev/android_kernel_samsung_gta4xlve** : 
 - **LineageOS**: https://github.com/LineageOS
 
 ### Support
