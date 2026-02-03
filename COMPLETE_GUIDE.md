@@ -83,7 +83,7 @@
 
 **✅ CORRECT Manager**:
 - **Name**: KernelSU-Next Manager
-- **Source**: https://github.com/rifsxd/KernelSU-Next/releases
+- **Source**: https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v1.1.1/KernelSU_Next_v1.1.1_12851-release.apk
 
 ### Installation
 
