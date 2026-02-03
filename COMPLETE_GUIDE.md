@@ -71,42 +71,11 @@
    ```bash
    adb sideload gta4xlve-ksun-YYYYMMDD.zip
    ```
-   - Wait for "Total xfer: 1.00x" message
+   Tap yes if it sasys verification failed u wanna continue
 
 4. **Reboot**:
    - Select "Reboot system now"
    - Device will boot with new kernel
-
-### Method 2: TWRP/OrangeFox
-
-**Best for**: Users who prefer custom recovery
-
-**Steps**:
-1. Boot to TWRP (Power + Volume Up)
-2. Tap "Install"
-3. Navigate to and select `gta4xlve-ksun-YYYYMMDD.zip`
-4. flash
-5. tap yes if it sasys verification failed u wanna continue
-6. Reboot system
-
-### Method 3: Fastboot (Advanced)
-
-**Best for**: Troubleshooting or direct flashing
-
-**Steps**:
-```bash
-# Extract Image.gz from ZIP
-unzip gta4xlve-ksun-YYYYMMDD.zip Image.gz
-
-# Boot to fastboot
-adb reboot bootloader
-
-# Flash kernel
-fastboot flash boot Image.gz
-fastboot reboot
-```
-
----
 
 ## KernelSU Manager
 
@@ -115,25 +84,13 @@ fastboot reboot
 **✅ CORRECT Manager**:
 - **Name**: KernelSU-Next Manager
 - **Source**: https://github.com/rifsxd/KernelSU-Next/releases
-- **Version**: Any 1.x.x or 3.x.x
-- **File**: `KernelSU_Manager_vX.X.X-release.apk`
-
-**❌ WRONG Manager** (Don't use):
-- **Name**: KernelSU Manager (original by tiann)
-- **Source**: https://github.com/tiann/KernelSU/releases
-- **Issue**: Incompatible with KernelSU-Next kernel
 
 ### Installation
 
 **Option 1: Manual Install**:
 1. Download APK from releases page
-2. Install: `adb install KernelSU_Manager_*.apk`
+2. Install: `KernelSU_Manager_*.apk`
 3. Open app and grant permissions
-
-**Option 2: Recovery Install**:
-1. Flash kernel ZIP
-2. Manager APK included in some versions
-3. Will auto-install on first boot
 
 ### Verification
 
