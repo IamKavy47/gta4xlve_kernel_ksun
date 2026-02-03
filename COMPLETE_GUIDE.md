@@ -2,12 +2,11 @@
 
 ## Table of Contents
 1. [Quick Start](#quick-start)
-2. [What Was Fixed](#what-was-fixed)
-3. [Flashing Instructions](#flashing-instructions)
-4. [KernelSU Manager](#kernelsu-manager)
-5. [Module Installation](#module-installation)
-6. [Technical Details](#technical-details)
-7. [Troubleshooting](#troubleshooting)
+2. [Flashing Instructions](#flashing-instructions)
+3. [KernelSU Manager](#kernelsu-manager)
+4. [Module Installation](#module-installation)
+5. [Technical Details](#technical-details)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -39,56 +38,6 @@
 - KernelSU version: **Varies based on v1.1.1 tag** (kernel) + ksud version (manager)
 - Root access working
 - Modules install successfully
-
----
-
-## What Was Fixed
-
-### Original Problems
-
-Users reported these issues:
-1. ✅ Kernel flashed successfully
-2. ✅ Root worked (Termux, NetHunter got root)
-3. ❌ **Zygisk-Next failed**: "KernelSU version too old"
-4. ❌ **Other modules**: Installed but didn't work
-5. ❌ **Manager 1.1.x**: "ksu next v2 signature not found"
-6. ❌ **Manager 3.x**: Said "working" but modules broken
-
-### Root Causes Found & Fixed
-
-#### Issue 1: KernelSU Hook Check Failed
-**Problem**: Build failed with "No hooks were defined"
-**Cause**: Kbuild checks for specific hooks during compilation
-**Fix**: 
-- Added all 6 required manual hooks to kernel source
-- Applied patch to guard hook check with `ifeq ($(CONFIG_KSU), y)`
-- Hook check now passes during build
-
-#### Issue 2: Wrong KernelSU Version (Version 0)
-**Problem**: Kernel embedded version 0 instead of actual version
-**Cause**: Legacy branch was removed from upstream, needed stable release tag
-**Fix**:
-- Use official **v1.1.1 tag** from KernelSU-Next GitHub
-- Tag at: https://github.com/KernelSU-Next/KernelSU-Next/tree/v1.1.1
-- Stable release specifically for kernel 4.14 compatibility
-- Version properly detected from tag
-
-#### Issue 3: DTB Build Failures
-**Problem**: "No rule to make target 'dtbo.img'" and DTC syntax errors
-**Cause**: 
-- Tried to build non-existent dtbo.img target
-- Tried explicit `make dtbs` which built overlays incorrectly
-**Fix**:
-- Build `Image.gz` instead of `Image.gz-dtb` (for overlay devices)
-- Let bootloader handle DTB/DTBO at runtime
-- Follows LineageOS methodology
-
-#### Issue 4: AnyKernel3 Script Issues
-**Problem**: Missing shebang, incomplete script structure
-**Fix**:
-- Added proper `#!/sbin/sh` shebang
-- Complete AnyKernel3 script with boot attributes
-- Proper flash_boot implementation
 
 ---
 
