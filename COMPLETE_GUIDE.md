@@ -1,42 +1,10 @@
 # GTA4XLVE Kernel with KernelSU-Next - Complete Guide
 
 ## Table of Contents
-1. [Quick Start](#quick-start)
-2. [Flashing Instructions](#flashing-instructions)
-3. [KernelSU Manager](#kernelsu-manager)
-4. [Module Installation](#module-installation)
-5. [Technical Details](#technical-details)
-
----
-
-## Quick Start
-
-### For Immediate Use
-
-**Download**: Get the latest `gta4xlve-ksun-YYYYMMDD.zip` from GitHub Actions artifacts
-
-**Flash Method 1 - LineageOS Recovery** (Recommended):
-```bash
-1. Reboot to recovery (Power + Volume Up)
-2. Apply update → Apply from ADB
-3. Run: adb sideload gta4xlve-ksun-YYYYMMDD.zip
-4. Reboot
-```
-
-**Flash Method 2 - TWRP**:
-```bash
-1. Boot to TWRP
-2. Install → Select ZIP
-3. Flash gta4xlve-ksun-YYYYMMDD.zip
-4. Reboot
-```
-
-**Manager**: Download KernelSU-Next Manager from https://github.com/rifsxd/KernelSU-Next/releases
-
-**Expected Result**:
-- KernelSU version: **Varies based on v1.1.1 tag** (kernel) + ksud version (manager)
-- Root access working
-- Modules install successfully
+1. [Flashing Instructions](#flashing-instructions)
+2. [KernelSU Manager](#kernelsu-manager)
+3. [Module Installation](#module-installation)
+4. [Technical Details](#technical-details)
 
 ---
 
