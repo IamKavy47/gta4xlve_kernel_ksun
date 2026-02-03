@@ -60,7 +60,6 @@
 1. **Boot to Recovery**:
    - Power off device
    - Hold Power + Volume Up
-   - Release when you see LineageOS logo
 
 2. **Enable ADB Sideload**:
    - Use Volume Up/Down to navigate
