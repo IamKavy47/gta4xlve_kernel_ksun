@@ -18,6 +18,21 @@
 - ✅ ADB/Fastboot installed on PC
 - ✅ USB debugging enabled (if using ADB sideload)
 
+### Download Files
+
+**Download Package**: https://drive.google.com/file/d/169u41YzQ1GNKxkeAXghk4QOSVMSv5sfE/view?usp=sharing
+
+This ZIP file contains:
+- Flashing ZIP (Kernel)
+- LSPosed Module
+- Zygisk Next Module
+
+**Instructions**:
+1. Open the link above in your browser
+2. Click the "Download" button in Google Drive
+3. Extract the downloaded ZIP file
+4. You'll find the flashing ZIP and required modules inside
+
 ### Method 1: LineageOS Recovery (Recommended)
 
 **Best for**: LineageOS users who don't want custom recovery
@@ -95,11 +110,15 @@ After installation, open Manager:
 
 ### Installing Modules
 
+**Get Modules**:
+- Download the package from the [Download Files](#download-files) section
+- Extract to find LSPosed Module and Zygisk Next Module
+
 **Via Manager**:
 1. Open KernelSU-Next Manager
 2. Tap "Modules" tab
 3. Tap "+" button
-4. Select module ZIP
+4. Select module ZIP (LSPosed or Zygisk Next from extracted files)
 5. Install and reboot
 
 ### Recovery Methods
