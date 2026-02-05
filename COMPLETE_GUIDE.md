@@ -155,9 +155,7 @@ After installation, open Manager:
 - **LineageOS**: https://github.com/LineageOS
 
 ### Support
-
--**Issues**: Open an issue on this repository
--**Telegram**:[@](https://t.me/iamkavy47)iamkavy47
+**Telegram**:[@](https://t.me/iamkavy47)iamkavy47
 
 ### Credits
 
@@ -179,7 +177,7 @@ After installation, open Manager:
 
 ### Final Notes
 
-This kernel is specifically built for **kernel 4.14**(lineageos23.2 - gta4xlveu) using **KernelSU-Next v1.1.1 tag**. This stable release is designed for older kernels that don't support kprobes properly.
+This kernel is specifically built for **kernel 4.14**(lineageos23.2 - gta4xlveu) using **KernelSU-Next v1.1.1 tag**. This stable release is designed for gta4xlveu.
 
 **Version v1.1.1** is a proven stable release that works well with all current modules and manager versions. Everything should work out of the box!
 
