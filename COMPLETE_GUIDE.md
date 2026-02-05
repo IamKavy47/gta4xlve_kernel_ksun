@@ -156,8 +156,8 @@ After installation, open Manager:
 
 ### Support
 
-**Issues**: Open an issue on this repository
-**Telegram**:[@](https://t.me/iamkavy47)iamkavy47
+-**Issues**: Open an issue on this repository
+-**Telegram**:[@](https://t.me/iamkavy47)iamkavy47
 
 ### Credits
 
