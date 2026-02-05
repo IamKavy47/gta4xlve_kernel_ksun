@@ -96,18 +96,6 @@ After installation, open Manager:
 
 ## Module Installation
 
-### Supported Modules
-
-**✅ Working Modules**:
-- Zygisk-Next (LSPosed framework)
-- KernelSU-specific modules
-- System tweaks (AdAway, etc.)
-- Xposed-style modules via Zygisk
-
-**❌ Not Supported**:
-- Magisk modules (different framework)
-- Modules requiring Magisk-specific features
-
 ### Installing Modules
 
 **Get Modules**:
