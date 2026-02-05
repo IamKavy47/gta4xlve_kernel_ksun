@@ -33,7 +33,7 @@ This ZIP file contains:
 3. Extract the downloaded ZIP file
 4. You'll find the flashing ZIP and required modules inside
 
-### Method 1: LineageOS Recovery (Recommended)
+### Method : LineageOS Recovery 
 
 **Best for**: LineageOS users who don't want custom recovery
 
@@ -50,7 +50,7 @@ This ZIP file contains:
 
 3. **Flash Kernel**:
    ```bash
-   adb sideload gta4xlve-ksun-YYYYMMDD.zip
+   adb sideload gta4xlve-ksun.zip
    ```
    Tap yes if it says verification failed u wanna continue
 
