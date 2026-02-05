@@ -28,9 +28,10 @@ This ZIP file contains:
 - Zygisk Next Module
 
 **Instructions**:
-1. Download the ZIP file from the link above
-2. Extract the contents
-3. You'll find the flashing ZIP and required modules
+1. Open the link above in your browser
+2. Click the "Download" button in Google Drive
+3. Extract the downloaded ZIP file
+4. You'll find the flashing ZIP and required modules inside
 
 ### Method 1: LineageOS Recovery (Recommended)
 
