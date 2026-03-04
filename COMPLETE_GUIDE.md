@@ -18,7 +18,7 @@
 - ✅ ADB/Fastboot installed on PC
 - ✅ USB debugging enabled (if using ADB sideload)
 
-### Download Files
+### Download Files 
 
 **Download Package**: https://drive.google.com/file/d/169u41YzQ1GNKxkeAXghk4QOSVMSv5sfE/view?usp=sharing
 
